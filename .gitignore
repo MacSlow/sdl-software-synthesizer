@@ -1,0 +1,8 @@
+build/CMakeCache.txt
+build/CMakeFiles/
+build/Makefile
+build/cmake_install.cmake
+build/software-synthesizer
+build/libSoftwareSynthesizerLib.a
+build/libApplicationLib.a
+build/compile_commands.json

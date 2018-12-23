@@ -1,0 +1,16 @@
+This is a SDL2-based implementation of a audio synthesizer.
+
+Available interaction control-keys:
+
+ * <ESC> - quits program
+
+The dependencies are modest:
+
+ * cmake 2.8.12
+ * C++-14 compiler (e.g. g++, clang++)
+ * SDL 2.0.5
+
+It compiles and runs under recent Linux-distributions (e.g. Ubuntu 16.04). It
+should run with little or no changes under MacOS X and Windows 7 (or more 
+recent) too. But that has not yet been tested. Feedback and patches are
+welcome.
