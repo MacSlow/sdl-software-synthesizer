@@ -12,12 +12,12 @@ add_compile_options(-std=c++14 -Werror -Wall -pedantic -fno-omit-frame-pointer -
 #add_compile_options(-std=c++14 -Werror -Wall -pedantic -fno-omit-frame-pointer -fsanitize=undefined,leak,address)
 
 add_library (ApplicationLib src/application.cpp)
-add_library (GameOfLifeLib src/software-synthesizer.cpp)
+add_library (SoftwareSynthLib src/software-synthesizer.cpp)
 
 add_executable (software-synthesizer src/main.cpp)
 target_link_libraries (software-synthesizer
 	ApplicationLib
-	GameOfLifeLib
+	SoftwareSynthLib
 	#-fsanitize=leak,address,undefined
 	${SDL2_LDFLAGS}
 	-pthread
