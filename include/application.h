@@ -6,6 +6,14 @@
 
 #include "software-synthesizer.h"
 
+struct SynthData
+{
+	float sampleRate;
+	int ticks;
+	float note;
+	float volume;
+};
+
 class Application {
     public:
         Application (size_t width, size_t height);
@@ -28,6 +36,7 @@ class Application {
         int _sampleRate = 48000;
         int _channels = 2;
         int _sampleBufferSize = 512;
+        SynthData _synthData;
 };
 
 #endif // _APPLICATION_H

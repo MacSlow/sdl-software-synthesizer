@@ -47,8 +47,8 @@ float oscSine (float baseFrequency,
 
     for (int i = 0; i < harmonics; ++i) {
         float frequency = baseFrequency*harmonic;
-        float lfo = .5f*frequency*sin (w(1.5f)*timeInSeconds);
-        result += amplitude*sin (w(frequency)*timeInSeconds + lfo);
+        //float lfo = .5f*frequency*sin (w(1.5f)*timeInSeconds);
+        result += amplitude*sin (w(frequency)*timeInSeconds);// + lfo);
         amplitude *= .5f;
         harmonic += even ? 1.f : 2.f;
     }
@@ -56,54 +56,56 @@ float oscSine (float baseFrequency,
     return result;
 }
 
-float oscCosine (float freq, float timeInSeconds) {
+float oscCosine (float freq, float timeInSeconds)
+{
     return cos (2.f*freq*timeInSeconds);
 }
 
-float oscNoise () {
+float oscNoise ()
+{
     return (float) random() / (float) RAND_MAX;
 }
 
-float oscSawtooth (float freq, float timeInSeconds) {
+float oscSawtooth (float freq, float timeInSeconds)
+{
     float cot = oscCosine (freq, timeInSeconds) / oscSine (freq, timeInSeconds);
     float f = -atan (cot);
     return f;
 }
 
-float oscSquare (float freq, float timeInSeconds) {
-    float f = copysign (1.f, oscSine (freq, timeInSeconds));
-    return f;
+float oscSquare (float freq, float timeInSeconds)
+{
+	return oscSine (freq, timeInSeconds, 24, false);
 }
 
-float oscTriangle (float freq, float timeInSeconds) {
-    float f = 0.63661975f * asin(oscSine (freq, timeInSeconds));
-    return f;
+float oscTriangle (float freq, float timeInSeconds)
+{
+	return oscSine (freq, timeInSeconds, 12, true);
 }
 
 auto start = high_resolution_clock::now ();
 
 void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
-    int* sample = reinterpret_cast<int*> (userdata);
-    float secondPerTick = 1.f/static_cast<float> (48000);
+    SynthData* synthData = reinterpret_cast<SynthData*> (userdata);
+    float secondPerTick = 1.f/static_cast<float> (synthData->sampleRate);
+    float volume = synthData->volume;
     float timeInSeconds = .0f;
     SDL_memset (stream, 0, lengthInBytes);
     int sizePerSample = static_cast<int> (sizeof (float));
 
     float* sampleBuffer = reinterpret_cast<float*> (stream);
 	for (int i = 0; i < lengthInBytes/sizePerSample; i += 2) {
-		timeInSeconds = static_cast<float> (*sample + i/2) * secondPerTick;
-        sampleBuffer[i] = .125f*oscSine (NOTE_C, timeInSeconds, 12, true);
-        sampleBuffer[i] += .125f*oscSine (NOTE_D, timeInSeconds, 12, true);
-        sampleBuffer[i] += .125f*oscSine (NOTE_E, timeInSeconds, 12, true);
-        sampleBuffer[i+1] = .125f*oscSine (NOTE_D, timeInSeconds, 24, false);
-        sampleBuffer[i+1] += .125f*oscSine (NOTE_E, timeInSeconds, 24, false);
-        sampleBuffer[i+1] += .125f*oscSine (NOTE_F, timeInSeconds, 24, false);
+		timeInSeconds = static_cast<float> (synthData->ticks + i/2) * secondPerTick;
+        sampleBuffer[i] = volume*oscSine (synthData->note, timeInSeconds, 12, true);
+        //sampleBuffer[i] += volume*oscSine (synthData->note + 120.f, timeInSeconds, 12, true);
+        //sampleBuffer[i] += volume*oscSine (synthData->note + 190.f, timeInSeconds, 12, true);
+        sampleBuffer[i+1] = volume*oscSine (synthData->note + 25.f, timeInSeconds, 24, false);
+        //sampleBuffer[i+1] += volume*oscSine (synthData->note + 55.f, timeInSeconds, 24, false);
+        //sampleBuffer[i+1] += volume*oscSine (synthData->note + 110.f, timeInSeconds, 24, false);
 	}
-    *sample += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
+    synthData->ticks += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
 }
-
-static int tick = 0;
 
 Application::Application (size_t width, size_t height)
     : _initialized (false), _window (NULL), _running (false)
@@ -128,6 +130,11 @@ Application::Application (size_t width, size_t height)
     SDL_AudioSpec want;
     SDL_AudioSpec have;
 
+    _synthData.sampleRate = _sampleRate;
+    _synthData.ticks = 0;
+    _synthData.note = .0f;
+    _synthData.volume = .0f;
+
     SDL_zero (want);
     want.freq = _sampleRate;
     want.format = AUDIO_F32SYS;
@@ -135,7 +142,7 @@ Application::Application (size_t width, size_t height)
     want.silence = 0;
     want.samples = _sampleBufferSize;
     want.callback = fillSampleBuffer;
-    want.userdata = &tick;
+    want.userdata = &_synthData;
 
     _audioDevice = SDL_OpenAudioDevice (nullptr,
                                         0,
@@ -166,13 +173,79 @@ void Application::handle_events ()
     SDL_Event event;
     while (SDL_PollEvent (&event)) {
         switch (event.type) {
-        case SDL_KEYDOWN:
-            if (event.key.keysym.sym == SDLK_ESCAPE) {
-                _running = false;
-            } else if (event.key.keysym.sym == SDLK_SPACE) {
-                _mute = !_mute;
-                SDL_PauseAudioDevice (_audioDevice, _mute);
+        case SDL_KEYUP:
+            switch (event.key.keysym.sym) {
+                case SDLK_y:
+                case SDLK_x:
+                case SDLK_c:
+                case SDLK_v:
+                case SDLK_b:
+                case SDLK_n:
+                case SDLK_m: {
+                    _synthData.note = .0f;
+                    _synthData.volume = .0f;
+                    break;
+                }
             }
+        break;
+        case SDL_KEYDOWN:
+            switch (event.key.keysym.sym) {
+                case SDLK_ESCAPE: {
+                    _running = false;
+                    break;
+                }
+
+                case SDLK_SPACE: {
+                    _mute = !_mute;
+                    SDL_PauseAudioDevice (_audioDevice, _mute);
+                    break;
+                }
+
+                case SDLK_y: {
+                    _synthData.note = NOTE_C;
+                    _synthData.volume = .125f;
+                    break;
+                }
+
+                case SDLK_x: {
+                    _synthData.note = NOTE_D;
+                    _synthData.volume = .125f;
+                    break;
+                }
+
+                case SDLK_c: {
+                    _synthData.note = NOTE_E;
+                    _synthData.volume = .125f;
+                    break;
+                }
+
+                case SDLK_v: {
+                    _synthData.note = NOTE_F;
+                    _synthData.volume = .125f;
+                    break;
+                }
+
+                case SDLK_b: {
+                    _synthData.note = NOTE_G;
+                    _synthData.volume = .125f;
+                    break;
+                }
+
+                case SDLK_n: {
+                    _synthData.note = NOTE_A;
+                    _synthData.volume = .125f;
+                    break;
+                }
+
+                case SDLK_m: {
+                    _synthData.note = NOTE_B;
+                    _synthData.volume = .125f;
+                    break;
+                }
+
+                default: break;
+            }
+
             break;
 
         case SDL_QUIT:
