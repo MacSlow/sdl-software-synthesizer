@@ -38,8 +38,12 @@ void SoftwareSynthesizer::paint (const SDL_Window* window) const
     }
 
     SDL_Surface* src = nullptr;
-    src = SDL_CreateRGBSurfaceWithFormatFrom (
-        buffer.data (), _width, _height, 32, pitch, SDL_PIXELFORMAT_RGB888);
+    src = SDL_CreateRGBSurfaceWithFormatFrom (buffer.data (),
+                                              _width,
+                                              _height,
+                                              32,
+                                              pitch,
+                                              SDL_PIXELFORMAT_RGB888);
     SDL_Surface* dst = SDL_GetWindowSurface (const_cast<SDL_Window*> (window));
     SDL_BlitSurface (src, NULL, dst, NULL);
     SDL_FreeSurface (src);
