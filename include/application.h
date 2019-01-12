@@ -7,22 +7,27 @@
 #include "software-synthesizer.h"
 
 class Application {
-  public:
-    Application (size_t width, size_t height);
-    ~Application ();
+    public:
+        Application (size_t width, size_t height);
+        ~Application ();
 
-    void run ();
-    void update ();
+        void run ();
+        void update ();
 
-  private:
-    void initialize ();
-    void handle_events ();
+    private:
+        void initialize ();
+        void handle_events ();
 
-  private:
-    bool _initialized = false;
-    SDL_Window* _window = nullptr;
-    bool _running = true;
-    std::unique_ptr<SoftwareSynthesizer> _softwareSynthesizer;
+    private:
+        bool _initialized = false;
+        SDL_Window* _window = nullptr;
+        bool _running = true;
+        std::unique_ptr<SoftwareSynthesizer> _softwareSynthesizer;
+        SDL_AudioDeviceID _audioDevice;
+        bool _mute = false;
+        int _sampleRate = 48000;
+        int _channels = 2;
+        int _sampleBufferSize = 512;
 };
 
 #endif // _APPLICATION_H
