@@ -2,6 +2,7 @@
 #include <chrono>
 #include <sstream>
 #include <memory>
+#include <mutex>
 #include <complex>
 #include "application.h"
 
@@ -18,6 +19,8 @@ using namespace std::chrono;
 #define NOTE_G 392.f
 #define NOTE_A 441.f
 #define NOTE_B 493.88f
+
+std::mutex synthDataMutex;
 
 void Application::initialize ()
 {
@@ -47,8 +50,8 @@ float oscSine (float baseFrequency,
 
     for (int i = 0; i < harmonics; ++i) {
         float frequency = baseFrequency*harmonic;
-        //float lfo = .5f*frequency*sin (w(1.5f)*timeInSeconds);
-        result += amplitude*sin (w(frequency)*timeInSeconds);// + lfo);
+        float lfo = .00035f*frequency*sin (w(17.5f)*timeInSeconds);
+        result += amplitude*sin (w(frequency)*timeInSeconds + lfo);
         amplitude *= .5f;
         harmonic += even ? 1.f : 2.f;
     }
@@ -87,28 +90,36 @@ auto start = high_resolution_clock::now ();
 
 void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
+    std::lock_guard<std::mutex> guard(synthDataMutex);
+
     SynthData* synthData = reinterpret_cast<SynthData*> (userdata);
     float secondPerTick = 1.f/static_cast<float> (synthData->sampleRate);
     float volume = synthData->volume;
     float timeInSeconds = .0f;
     SDL_memset (stream, 0, lengthInBytes);
     int sizePerSample = static_cast<int> (sizeof (float));
+    //cout << "size: " << synthData->notes->size () << '\n';
 
     float* sampleBuffer = reinterpret_cast<float*> (stream);
 	for (int i = 0; i < lengthInBytes/sizePerSample; i += 2) {
 		timeInSeconds = static_cast<float> (synthData->ticks + i/2) * secondPerTick;
-        sampleBuffer[i] = volume*oscSine (synthData->note, timeInSeconds, 12, true);
-        //sampleBuffer[i] += volume*oscSine (synthData->note + 120.f, timeInSeconds, 12, true);
-        //sampleBuffer[i] += volume*oscSine (synthData->note + 190.f, timeInSeconds, 12, true);
-        sampleBuffer[i+1] = volume*oscSine (synthData->note + 25.f, timeInSeconds, 24, false);
-        //sampleBuffer[i+1] += volume*oscSine (synthData->note + 55.f, timeInSeconds, 24, false);
-        //sampleBuffer[i+1] += volume*oscSine (synthData->note + 110.f, timeInSeconds, 24, false);
+        sampleBuffer[i] = .0f;
+        sampleBuffer[i+1] = .0f;
+        for (auto note : *synthData->notes) {
+            sampleBuffer[i] += oscSine (note, timeInSeconds, 12, true);
+            sampleBuffer[i+1] += oscSine (note, timeInSeconds, 24, false);
+        }
+        sampleBuffer[i] *= volume;
+        sampleBuffer[i+1] *= volume;
 	}
     synthData->ticks += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
 }
 
 Application::Application (size_t width, size_t height)
-    : _initialized (false), _window (NULL), _running (false)
+    : _initialized {false}
+    , _window {nullptr}
+    , _running {false}
+    , _notes {std::make_shared<std::list<float>> ()}
 {
     initialize ();
 
@@ -132,8 +143,8 @@ Application::Application (size_t width, size_t height)
 
     _synthData.sampleRate = _sampleRate;
     _synthData.ticks = 0;
-    _synthData.note = .0f;
     _synthData.volume = .0f;
+    _synthData.notes = _notes;
 
     SDL_zero (want);
     want.freq = _sampleRate;
@@ -170,20 +181,69 @@ Application::~Application ()
 
 void Application::handle_events ()
 {
+    auto removeNote = [this](float note){ for (auto it = _notes->begin();
+                                                    it != _notes->end();) {
+                                              if (*it == note) {
+                                                  it = _notes->erase (it);
+                                              } else {
+                                                  ++it;
+                                              }
+                                          }
+                                        };
+    auto checkForNote = [this](float note){ for (auto it = _notes->begin();
+                                                      it != _notes->end();++it) {
+                                                if (*it == note) {
+                                                    return true;
+                                                }
+                                            }
+                                            return false;
+                                          };
     SDL_Event event;
+
+    std::lock_guard<std::mutex> guard(synthDataMutex);
     while (SDL_PollEvent (&event)) {
         switch (event.type) {
         case SDL_KEYUP:
             switch (event.key.keysym.sym) {
-                case SDLK_y:
-                case SDLK_x:
-                case SDLK_c:
-                case SDLK_v:
-                case SDLK_b:
-                case SDLK_n:
+                case SDLK_y: {
+                    removeNote (NOTE_C);
+                    _synthData.volume = _notes->size() == 0 ? .0f : .125f;
+                    break;
+                }
+
+                case SDLK_x: {
+                    removeNote (NOTE_D);
+                    _synthData.volume = _notes->size() == 0 ? .0f : .125f;
+                    break;
+                }
+
+                case SDLK_c: {
+                    removeNote (NOTE_E);
+                    _synthData.volume = _notes->size() == 0 ? .0f : .125f;
+                    break;
+                }
+
+                case SDLK_v: {
+                    removeNote (NOTE_F);
+                    _synthData.volume = _notes->size() == 0 ? .0f : .125f;
+                    break;
+                }
+
+                case SDLK_b: {
+                    removeNote (NOTE_G);
+                    _synthData.volume = _notes->size() == 0 ? .0f : .125f;
+                    break;
+                }
+
+                case SDLK_n: {
+                    removeNote (NOTE_A);
+                    _synthData.volume = _notes->size() == 0 ? .0f : .125f;
+                    break;
+                }
+
                 case SDLK_m: {
-                    _synthData.note = .0f;
-                    _synthData.volume = .0f;
+                    removeNote (NOTE_B);
+                    _synthData.volume = _notes->size() == 0 ? .0f : .125f;
                     break;
                 }
             }
@@ -202,44 +262,65 @@ void Application::handle_events ()
                 }
 
                 case SDLK_y: {
-                    _synthData.note = NOTE_C;
-                    _synthData.volume = .125f;
+                    if (_synthData.notes->size () < _maxVoices &&
+                        !checkForNote (NOTE_C)) {
+                        _synthData.notes->emplace_back (NOTE_C);
+                        _synthData.volume = .125f;
+                    }
                     break;
                 }
 
                 case SDLK_x: {
-                    _synthData.note = NOTE_D;
-                    _synthData.volume = .125f;
+                    if (_synthData.notes->size () < _maxVoices &&
+                        !checkForNote (NOTE_D)) {
+                        _synthData.notes->emplace_back (NOTE_D);
+                        _synthData.volume = .125f;
+                    }
                     break;
                 }
 
                 case SDLK_c: {
-                    _synthData.note = NOTE_E;
-                    _synthData.volume = .125f;
+                    if (_synthData.notes->size () < _maxVoices &&
+                        !checkForNote (NOTE_E)) {
+                        _synthData.notes->emplace_back (NOTE_E);
+                        _synthData.volume = .125f;
+                    }
                     break;
                 }
 
                 case SDLK_v: {
-                    _synthData.note = NOTE_F;
-                    _synthData.volume = .125f;
+                    if (_synthData.notes->size () < _maxVoices &&
+                        !checkForNote (NOTE_F)) {
+                        _synthData.notes->emplace_back (NOTE_F);
+                        _synthData.volume = .125f;
+                    }
                     break;
                 }
 
                 case SDLK_b: {
-                    _synthData.note = NOTE_G;
-                    _synthData.volume = .125f;
+                    if (_synthData.notes->size () < _maxVoices &&
+                        !checkForNote (NOTE_G)) {
+                        _synthData.notes->emplace_back (NOTE_G);
+                        _synthData.volume = .125f;
+                    }
                     break;
                 }
 
                 case SDLK_n: {
-                    _synthData.note = NOTE_A;
-                    _synthData.volume = .125f;
+                    if (_synthData.notes->size () < _maxVoices &&
+                        !checkForNote (NOTE_A)) {
+                        _synthData.notes->emplace_back (NOTE_A);
+                        _synthData.volume = .125f;
+                    }
                     break;
                 }
 
                 case SDLK_m: {
-                    _synthData.note = NOTE_B;
-                    _synthData.volume = .125f;
+                    if (_synthData.notes->size () < _maxVoices &&
+                        !checkForNote (NOTE_B)) {
+                        _synthData.notes->emplace_back (NOTE_B);
+                        _synthData.volume = .125f;
+                    }
                     break;
                 }
 
