@@ -24,6 +24,7 @@ using namespace std::chrono;
 #define NOTE_A   49
 #define NOTE_AIS 50
 #define NOTE_B   51
+#define NOTE_C2  52
 
 std::mutex synthDataMutex;
 
@@ -249,6 +250,7 @@ void Application::handle_events ()
                 case SDLK_n: removeNote (NOTE_A); break;
                 case SDLK_j: removeNote (NOTE_AIS); break;
                 case SDLK_m: removeNote (NOTE_B); break;
+                case SDLK_COMMA: removeNote (NOTE_C2); break;
             }
         break;
         case SDL_KEYDOWN:
@@ -276,6 +278,7 @@ void Application::handle_events ()
                 case SDLK_n: addNote (NOTE_A); break;
                 case SDLK_j: addNote (NOTE_AIS); break;
                 case SDLK_m: addNote (NOTE_B); break;
+                case SDLK_COMMA: addNote (NOTE_C2); break;
 
                 default: break;
             }
