@@ -83,7 +83,7 @@ struct SynthData
 	float sampleRate;
 	int ticks;
 	float volume;
-    std::shared_ptr<std::list<float>> notes;
+    std::shared_ptr<std::list<int>> notes;
 };
 
 class Application {
@@ -110,7 +110,7 @@ class Application {
         int _channels = 2;
         int _sampleBufferSize = 512;
         int _maxVoices = 7;
-        std::shared_ptr<std::list<float>> _notes;
+        std::shared_ptr<std::list<int>> _notes;
         SynthData _synthData;
 };
 
