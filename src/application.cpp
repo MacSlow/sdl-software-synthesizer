@@ -188,6 +188,7 @@ Application::Application (size_t width, size_t height)
         }
         SDL_PauseAudioDevice (_audioDevice, _mute);
     }
+    _softwareSynthesizer = make_unique<SoftwareSynthesizer> (width, height);
 }
 
 Application::~Application ()
@@ -300,6 +301,15 @@ void Application::run ()
 
     while (_running) {
         handle_events ();
+        update ();
     }
 }
 
+void Application::update ()
+{
+    if (!_initialized)
+        return;
+
+    _softwareSynthesizer->update ();
+    _softwareSynthesizer->paint (_window);
+}

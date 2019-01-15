@@ -7,6 +7,7 @@
 
 #include <SDL.h>
 
+#include "software-synthesizer.h"
 
 struct Envelope
 {
@@ -91,6 +92,7 @@ class Application {
         ~Application ();
 
         void run ();
+        void update ();
 
     private:
         void initialize ();
@@ -100,11 +102,12 @@ class Application {
         bool _initialized = false;
         SDL_Window* _window = nullptr;
         bool _running = true;
+        std::unique_ptr<SoftwareSynthesizer> _softwareSynthesizer;
         SDL_AudioDeviceID _audioDevice;
         bool _mute = false;
         int _sampleRate = 48000;
         int _channels = 2;
-        int _sampleBufferSize = 512;
+        int _sampleBufferSize = 1024;
         int _maxVoices = 7;
         std::shared_ptr<std::list<int>> _notes;
         SynthData _synthData;
