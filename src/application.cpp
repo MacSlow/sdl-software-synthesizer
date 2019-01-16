@@ -54,6 +54,11 @@ void Application::initialize ()
     _initialized = true;
 }
 
+float w(float hertz)
+{
+    return 2.f*M_PI*hertz;
+}
+
 float oscSine (float baseFrequency,
                float timeInSeconds,
                int harmonics = 1,
@@ -61,12 +66,10 @@ float oscSine (float baseFrequency,
     float result = .0f;
     float amplitude = 1.f;
     float harmonic = 1.f;
-    auto w = [](float hertz){ return 2.f*M_PI*hertz; };
 
     for (int i = 0; i < harmonics; ++i) {
         float frequency = baseFrequency*harmonic;
-        float lfo = .00035f*frequency*sin (w(17.5f)*timeInSeconds);
-        result += amplitude*sin (w(frequency)*timeInSeconds + lfo);
+        result += amplitude*sin (w(frequency)*timeInSeconds);
         amplitude *= .5f;
         harmonic += even ? 1.f : 2.f;
     }
@@ -84,16 +87,28 @@ float oscNoise ()
     return (float) random() / (float) RAND_MAX;
 }
 
-float oscSawtooth (float freq, float timeInSeconds)
+float oscSawtooth (float freq, float timeInSeconds, float steps = 10.f)
 {
-    float cot = oscCosine (freq, timeInSeconds) / oscSine (freq, timeInSeconds);
-    float f = -atan (cot);
-    return f;
+    float result = .0f;
+    float scale = 2.f/M_PI;
+    for (float i = 1.f; i < steps; i += 1.f) {
+        result += (1.f/i) * sin (i*M_PI*freq*timeInSeconds);
+    }
+    return scale*result;
 }
 
-float oscSquare (float freq, float timeInSeconds)
+float oscSquare (float freq, float timeInSeconds, float steps = 10.f)
 {
-	return oscSine (freq, timeInSeconds, 24, false);
+    float result = .0f;
+    float scale =  4.f/M_PI;
+    float numerator = .0f;
+    float denominator = .0f;
+    for (float i = 1.f; i < steps; i += 1.f) {
+        numerator = sin (2.f*M_PI*(2.f*i - 1.f)*freq*timeInSeconds);
+        denominator = 2.f*i - 1.f;
+        result += numerator/denominator;
+    }
+	return scale*result;
 }
 
 float oscTriangle (float freq, float timeInSeconds)
@@ -119,15 +134,20 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 		timeInSeconds = static_cast<float> (synthData->ticks + i/2) * secondPerTick;
         sampleBuffer[i] = .0f;
         sampleBuffer[i+1] = .0f;
+
         for (auto note : *synthData->notes) {
-            sampleBuffer[i] += oscSine (keyToPitch (note),
+            float lfo = .0f*sin (w(15.f)*timeInSeconds);
+            sampleBuffer[i] += oscSine (keyToPitch (note) + lfo,
                                         timeInSeconds,
                                         12,
                                         true);
-            sampleBuffer[i+1] += oscSine (keyToPitch (note),
+            sampleBuffer[i+1] += oscSine (keyToPitch (note) + lfo,
                                           timeInSeconds,
                                           24,
                                           false);
+
+            //sampleBuffer[i] += oscSquare(keyToPitch(note)+lfo, timeInSeconds, 20.f);
+            //sampleBuffer[i+1] += oscSawtooth(keyToPitch(note)+lfo, timeInSeconds, 20.f);
         }
         sampleBuffer[i] *= volume;
         sampleBuffer[i+1] *= volume;
