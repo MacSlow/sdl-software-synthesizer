@@ -8,8 +8,8 @@ include (FindPkgConfig)
 pkg_check_modules (SDL2 sdl2 REQUIRED)
 include_directories (include ${SDL2_INCLUDE_DIRS})
 
-add_compile_options(-std=c++14 -Werror -Wall -pedantic -fno-omit-frame-pointer -Ofast -march=native)
-#add_compile_options(-std=c++14 -Werror -Wall -pedantic -fno-omit-frame-pointer -fsanitize=undefined,leak,address)
+add_compile_options(-std=c++17 -Werror -Wall -pedantic -Os)
+#add_compile_options(-std=c++17 -Werror -Wall -pedantic -fno-omit-frame-pointer -fsanitize=undefined,leak,address)
 
 add_library (ApplicationLib src/application.cpp)
 add_library (SoftwareSynthLib src/software-synthesizer.cpp)
