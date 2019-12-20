@@ -136,7 +136,7 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         sampleBuffer[i+1] = .0f;
 
         for (auto note : *synthData->notes) {
-            float lfo = .0f*sin (w(15.f)*timeInSeconds);
+            float lfo = .01f*sin (w(5.f)*timeInSeconds);
             sampleBuffer[i] += oscSine (keyToPitch (note) + lfo,
                                         timeInSeconds,
                                         12,
