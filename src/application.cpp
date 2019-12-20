@@ -29,6 +29,11 @@ using namespace std::chrono;
 
 std::mutex synthDataMutex;
 
+static float elapsedSeconds ()
+{
+    return static_cast<float>(SDL_GetTicks())*.001;
+}
+
 float keyToPitch (int key)
 {
     // using A4 with 440Hz as the base, key = 1 is an A0
@@ -46,7 +51,7 @@ void Application::initialize ()
     SDL_ClearError ();
     result = SDL_Init (SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS);
     if (result != 0) {
-        cout << "SDL_Init() failed: " << SDL_GetError () << newline;
+         cout << "SDL_Init() failed: " << SDL_GetError () << newline;
         _initialized = false;
         return;
     }
@@ -116,15 +121,13 @@ float oscTriangle (float freq, float timeInSeconds)
 	return oscSine (freq, timeInSeconds, 12, true);
 }
 
-auto start = high_resolution_clock::now ();
-
 void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
     std::lock_guard<std::mutex> guard(synthDataMutex);
 
     SynthData* synthData = reinterpret_cast<SynthData*> (userdata);
     float secondPerTick = 1.f/static_cast<float> (synthData->sampleRate);
-    float volume = synthData->volume;
+    float volume = .25f; //synthData->volume;
     float timeInSeconds = .0f;
     SDL_memset (stream, 0, lengthInBytes);
     int sizePerSample = static_cast<int> (sizeof (float));
@@ -135,19 +138,19 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         sampleBuffer[i] = .0f;
         sampleBuffer[i+1] = .0f;
 
-        for (auto note : *synthData->notes) {
-            float lfo = .01f*sin (w(5.f)*timeInSeconds);
-            sampleBuffer[i] += oscSine (keyToPitch (note) + lfo,
+        for (auto note : *synthData->envNotes) {
+            float level = note.envelope.level (elapsedSeconds());
+            float lfo = .0f;//.01f*sin (w(5.f)*timeInSeconds);
+            sampleBuffer[i] += oscSine (keyToPitch (note.noteId) + lfo,
                                         timeInSeconds,
                                         12,
                                         true);
-            sampleBuffer[i+1] += oscSine (keyToPitch (note) + lfo,
+            sampleBuffer[i+1] += oscSine (keyToPitch (note.noteId) + lfo,
                                           timeInSeconds,
                                           24,
                                           false);
-
-            //sampleBuffer[i] += oscSquare(keyToPitch(note)+lfo, timeInSeconds, 20.f);
-            //sampleBuffer[i+1] += oscSawtooth(keyToPitch(note)+lfo, timeInSeconds, 20.f);
+            sampleBuffer[i] *= level;
+            sampleBuffer[i+1] *= level;
         }
         sampleBuffer[i] *= volume;
         sampleBuffer[i+1] *= volume;
@@ -159,7 +162,7 @@ Application::Application (size_t width, size_t height)
     : _initialized {false}
     , _window {nullptr}
     , _running {false}
-    , _notes {std::make_shared<std::list<int>> ()}
+    , _envNotes {std::make_shared<std::list<Note>> ()}
 {
     initialize ();
 
@@ -184,7 +187,7 @@ Application::Application (size_t width, size_t height)
     _synthData.sampleRate = _sampleRate;
     _synthData.ticks = 0;
     _synthData.volume = .0f;
-    _synthData.notes = _notes;
+    _synthData.envNotes = _envNotes;
 
     SDL_zero (want);
     want.freq = _sampleRate;
@@ -220,23 +223,25 @@ Application::~Application ()
 
 void Application::handle_events ()
 {
-    auto removeNote = [&] (int noteId) {
-        for (auto it = _notes->begin();
-                  it != _notes->end();) {
-            if (*it == noteId) {
-                it = _notes->erase (it);
+    auto removeNote = [&] (NoteId noteId) {
+        for (auto it = _envNotes->begin();
+                  it != _envNotes->end();) {
+            if ((*it).noteId == noteId) {
+                (*it).envelope.noteOff(elapsedSeconds());
+                ++it;
+            } else if (!(*it).envelope.noteActive) {
+                it = _envNotes->erase(it);
             } else {
                 ++it;
             }
         }
-        _synthData.volume = _notes->size() == 0 ? .0f : .125f;
     };
 
-    auto checkForNote = [&] (int noteId) {
-        for (auto it = _notes->begin();
-                  it != _notes->end();
+    auto checkForNote = [&] (NoteId noteId) {
+        for (auto it = _envNotes->begin();
+                  it != _envNotes->end();
                   ++it) {
-            if (*it == noteId) {
+            if ((*it).noteId == noteId) {
                 return true;
             }
         }
@@ -244,10 +249,12 @@ void Application::handle_events ()
     };
 
     auto addNote = [&] (int noteId) {
-        if (_synthData.notes->size () < _maxVoices &&
+        if (_synthData.envNotes->size() < _maxVoices &&
             !checkForNote (noteId)) {
-            _synthData.notes->emplace_back (noteId);
-            _synthData.volume = .125f;
+            Note note;
+            note.noteId = noteId;
+            note.envelope.noteOn(elapsedSeconds());
+            _synthData.envNotes->emplace_back(note);
         }
     };
 

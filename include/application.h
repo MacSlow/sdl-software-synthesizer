@@ -9,13 +9,15 @@
 
 #include "software-synthesizer.h"
 
+using NoteId = int;
+
 struct Envelope
 {
     float attackLevel = 1.f;
-    float attackTime = .1f;
+    float attackTime = .05f;
     float decayTime = .1f;
-    float sustainLevel = .5f;
-    float releaseTime = .1f;
+    float sustainLevel = .75f;
+    float releaseTime = .2f;
     float noteOnTime = .0f;
     float noteOffTime = .0f;
     bool noteActive = false;
@@ -74,6 +76,7 @@ struct Envelope
 
 struct Note
 {
+    NoteId noteId;
     float frequency;
     Envelope envelope;
 };
@@ -83,7 +86,7 @@ struct SynthData
 	float sampleRate;
 	int ticks;
 	float volume;
-    std::shared_ptr<std::list<int>> notes;
+    std::shared_ptr<std::list<Note>> envNotes;
 };
 
 class Application {
@@ -109,7 +112,7 @@ class Application {
         int _channels = 2;
         int _sampleBufferSize = 1024;
         unsigned int _maxVoices = 7;
-        std::shared_ptr<std::list<int>> _notes;
+        std::shared_ptr<std::list<Note>> _envNotes;
         SynthData _synthData;
 };
 
