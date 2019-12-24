@@ -2,6 +2,7 @@
 #define _APPLICATION_H
 
 #include <list>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -14,13 +15,14 @@ using NoteId = int;
 struct Envelope
 {
     float attackLevel = 1.f;
-    float attackTime = .05f;
-    float decayTime = .1f;
-    float sustainLevel = .75f;
-    float releaseTime = .2f;
+    float attackTime = .15f;
+    float decayTime = .2f;
+    float sustainLevel = .8f;
+    float releaseTime = .65f;
     float noteOnTime = .0f;
     float noteOffTime = .0f;
     bool noteActive = false;
+    bool noteReleased = false;
 
     void noteOn (float currentTime)
     {
@@ -58,6 +60,7 @@ struct Envelope
             }
         } else if (noteOnTime <= noteOffTime) {
             // handle release
+            noteReleased = true;
             float releaseLifetime = currentTime - noteOffTime;
             outputLevel = (1.f - (releaseLifetime / releaseTime)) * sustainLevel;
         }
@@ -77,19 +80,37 @@ struct Envelope
 struct Note
 {
     NoteId noteId;
-    float frequency;
     Envelope envelope;
+};
+
+
+using Notes = std::list<Note>;
+
+class Synth
+{
+    public:
+        explicit Synth(unsigned int maxVoices = 16);
+
+        void addNote(NoteId note);
+        void removeNote(NoteId note);
+        std::shared_ptr<Notes> notes();
+        void clearNotes ();
+
+    private:
+        std::shared_ptr<Notes> _notes;
+        unsigned int _maxVoices;
 };
 
 struct SynthData
 {
-	float sampleRate;
-	int ticks;
-	float volume;
-    std::shared_ptr<std::list<Note>> envNotes;
+    float sampleRate;
+    int ticks;
+    float volume;
+    std::shared_ptr<Notes> notes;
 };
 
-class Application {
+class Application
+{
     public:
         Application (size_t width, size_t height);
         ~Application ();
@@ -111,9 +132,11 @@ class Application {
         int _sampleRate = 48000;
         int _channels = 2;
         int _sampleBufferSize = 1024;
-        unsigned int _maxVoices = 7;
-        std::shared_ptr<std::list<Note>> _envNotes;
+        unsigned int _maxVoices = 8;
+        Synth _synth;
+        std::shared_ptr<Notes> _notes;
         SynthData _synthData;
+        std::map<SDL_Keycode, bool> _pressedKeys;
 };
 
 #endif // _APPLICATION_H
