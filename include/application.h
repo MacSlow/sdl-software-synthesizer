@@ -1,14 +1,14 @@
 #ifndef _APPLICATION_H
 #define _APPLICATION_H
 
+#include <SDL.h>
+
 #include <list>
 #include <map>
 #include <memory>
 #include <vector>
 
-#include <SDL.h>
-
-#include "software-synthesizer.h"
+#include "opengl.h"
 
 using NoteId = int;
 
@@ -107,6 +107,7 @@ struct SynthData
     int ticks;
     float volume;
     std::shared_ptr<Notes> notes;
+    float* sampleBufferForDrawing;
 };
 
 class Application
@@ -125,8 +126,8 @@ class Application
     private:
         bool _initialized = false;
         SDL_Window* _window = nullptr;
+        SDL_GLContext _context;
         bool _running = true;
-        std::unique_ptr<SoftwareSynthesizer> _softwareSynthesizer;
         SDL_AudioDeviceID _audioDevice;
         bool _mute = false;
         int _sampleRate = 48000;
@@ -137,6 +138,8 @@ class Application
         std::shared_ptr<Notes> _notes;
         SynthData _synthData;
         std::map<SDL_Keycode, bool> _pressedKeys;
+        std::vector<float> _sampleBufferForDrawing;
+        std::shared_ptr<OpenGL> _gl;
 };
 
 #endif // _APPLICATION_H

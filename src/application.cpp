@@ -6,13 +6,12 @@
 #include <mutex>
 #include <complex>
 
-
 #include "application.h"
 
 using namespace std;
 using namespace std::chrono;
 
-#define WIN_TITLE "Audio software synthesizer by MacSlow"
+#define WIN_TITLE "8-way polyphonic synthesizer by MacSlow"
 #define newline '\n'
 
 #define NOTE_C   40
@@ -36,10 +35,11 @@ static float elapsedSeconds ()
     return static_cast<float>(SDL_GetTicks())*.001;
 }
 
-float keyToPitch (int key)
+float keyToPitch (int key, float detune = .0f /* 0..100 */)
 {
     // using A4 with 440Hz as the base, key = 1 is an A0
     float fkey = static_cast<float> (key);
+    fkey += detune*.01f;
     float pitch = pow(2.f, (fkey - 49.f)/12.f)*440.f;
     return pitch;
 }
@@ -58,6 +58,12 @@ void Application::initialize ()
         return;
     }
 
+    _sampleBufferForDrawing.reserve(_sampleBufferSize*2);
+
+    std::fill(_sampleBufferForDrawing.begin(),
+              _sampleBufferForDrawing.end(),
+              .0f);
+
     _initialized = true;
 }
 
@@ -73,20 +79,16 @@ float oscSine (float baseFrequency,
     float result = .0f;
     float amplitude = 1.f;
     float harmonic = 1.f;
+    float maxHarmonics = static_cast<float>(harmonics);
 
-    for (int i = 0; i < harmonics; ++i) {
+    for (float i = .0f; i < maxHarmonics; (even ? i += 1.f : i += 2.f)) {
         float frequency = baseFrequency*harmonic;
         result += amplitude*sin (w(frequency)*timeInSeconds);
-        amplitude *= .5f;
-        harmonic += even ? 1.f : 2.f;
+        amplitude = 1.f/harmonic;
+        harmonic = 1.f + i;
     }
 
     return result;
-}
-
-float oscCosine (float freq, float timeInSeconds)
-{
-    return cos (2.f*freq*timeInSeconds);
 }
 
 float oscNoise ()
@@ -94,34 +96,20 @@ float oscNoise ()
     return (float) random() / (float) RAND_MAX;
 }
 
-float oscSawtooth (float freq, float timeInSeconds, float steps = 10.f)
+float oscSawtooth (float freq, float timeInSeconds, int harmonics = 12)
 {
-    float result = .0f;
-    float scale = 2.f/M_PI;
-    for (float i = 1.f; i < steps; i += 1.f) {
-        result += (1.f/i) * sin (i*M_PI*freq*timeInSeconds);
-    }
-    return scale*result;
+    return oscSine (freq, timeInSeconds, harmonics, true);
 }
 
-float oscSquare (float freq, float timeInSeconds, float steps = 10.f)
+float oscSquare (float freq, float timeInSeconds, int harmonics = 24)
 {
-    float result = .0f;
-    float scale =  4.f/M_PI;
-    float numerator = .0f;
-    float denominator = .0f;
-    for (float i = 1.f; i < steps; i += 1.f) {
-        numerator = sin (2.f*M_PI*(2.f*i - 1.f)*freq*timeInSeconds);
-        denominator = 2.f*i - 1.f;
-        result += numerator/denominator;
-    }
-	return scale*result;
+    return oscSine (freq, timeInSeconds, harmonics, false);
 }
 
-float oscTriangle (float freq, float timeInSeconds)
-{
-	return oscSine (freq, timeInSeconds, 12, true);
-}
+// saw: all harmonic overtones
+// square/pulse: only odd harmonic overtones
+
+static short instrument = 0;
 
 void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
@@ -129,7 +117,7 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 
     SynthData* synthData = reinterpret_cast<SynthData*> (userdata);
     float secondPerTick = 1.f/static_cast<float> (synthData->sampleRate);
-    float volume = .2f; //synthData->volume;
+    float volume = synthData->volume;
     float timeInSeconds = .0f;
     SDL_memset (stream, 0, lengthInBytes);
     int sizePerSample = static_cast<int> (sizeof (float));
@@ -142,21 +130,65 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 
         for (auto note : *synthData->notes) {
             float level = note.envelope.level (elapsedSeconds());
-            sampleBuffer[i] += oscSine (keyToPitch (note.noteId),
-                                        timeInSeconds,
-                                        12,
-                                        true);
-            sampleBuffer[i+1] += oscSine (keyToPitch (note.noteId),
-                                          timeInSeconds,
-                                          24,
-                                          false);
+            float detune1 = 20.f*(.5f + .5f*sin(w(.025f)*timeInSeconds));
+            float detune2 = 10.f*(.5f + .5f*sin(w(.025f)*timeInSeconds));
+            float lfo1 = .02f*sin(w(5.f)*timeInSeconds);
+            float lfo2 = .02f*sin(w(7.f)*timeInSeconds);
+            switch (instrument) {
+                case 0: {
+                    sampleBuffer[i] += oscSine (keyToPitch (note.noteId,
+                                                            detune1) + lfo1,
+                                                timeInSeconds);
+                    sampleBuffer[i+1] += oscSine (keyToPitch (note.noteId,
+                                                              detune2) + lfo2,
+                                                  timeInSeconds);
+                    volume = .25f;
+                    break;
+                }
+
+                case 1: {
+                    sampleBuffer[i] += oscSquare (keyToPitch (note.noteId,
+                                                              detune1) + lfo1,
+                                                  timeInSeconds);
+                    sampleBuffer[i+1] += oscSquare (keyToPitch (note.noteId,
+                                                                detune2) + lfo2,
+                                                    timeInSeconds);
+                    break;
+                }
+
+                case 2: {
+                    sampleBuffer[i] += oscSawtooth (keyToPitch (note.noteId,
+                                                                detune1) + lfo1,
+                                                    timeInSeconds);
+                    sampleBuffer[i+1] += oscSawtooth (keyToPitch (note.noteId,
+                                                                  detune2) + lfo2,
+                                                      timeInSeconds);
+                    break;
+                }
+                case 3: {
+                    sampleBuffer[i] += oscSawtooth (keyToPitch (note.noteId,
+                                                                detune1) + lfo1,
+                                                    timeInSeconds);
+                    sampleBuffer[i+1] += oscSquare (keyToPitch (note.noteId,
+                                                                detune2) + lfo2,
+                                                    timeInSeconds);
+                    break;
+                }
+
+                default :
+                break;
+            }
 
             sampleBuffer[i] *= level;
             sampleBuffer[i+1] *= level;
         }
         sampleBuffer[i] *= volume;
         sampleBuffer[i+1] *= volume;
+
+        synthData->sampleBufferForDrawing[i] = sampleBuffer[i];
+        synthData->sampleBufferForDrawing[i+1] = sampleBuffer[i+1];
 	}
+
     synthData->ticks += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
 }
 
@@ -165,12 +197,27 @@ Application::Application (size_t width, size_t height)
     , _window {nullptr}
     , _running {false}
     , _synth {Synth(_maxVoices)}
+    , _sampleBufferForDrawing(_sampleBufferSize*2)
 {
     initialize ();
 
+    SDL_GL_SetAttribute (SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute (SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute (SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute (SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute (SDL_GL_MULTISAMPLESAMPLES, 8);
+    SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK,
+                         SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 1);
+
     SDL_ClearError ();
-    _window = SDL_CreateWindow (WIN_TITLE, SDL_WINDOWPOS_UNDEFINED,
-                                SDL_WINDOWPOS_UNDEFINED, width, height, 0);
+    _window = SDL_CreateWindow (WIN_TITLE,
+                                SDL_WINDOWPOS_UNDEFINED,
+                                SDL_WINDOWPOS_UNDEFINED,
+                                width,
+                                height,
+                                SDL_WINDOW_OPENGL);
     if (!_window) {
         cout << "window creation failed: " << SDL_GetError () << newline;
         return;
@@ -188,8 +235,9 @@ Application::Application (size_t width, size_t height)
 
     _synthData.sampleRate = _sampleRate;
     _synthData.ticks = 0;
-    _synthData.volume = .0f;
+    _synthData.volume = .1f;
     _synthData.notes = _synth.notes();
+    _synthData.sampleBufferForDrawing = _sampleBufferForDrawing.data();
 
     SDL_zero (want);
     want.freq = _sampleRate;
@@ -213,11 +261,24 @@ Application::Application (size_t width, size_t height)
         }
         SDL_PauseAudioDevice (_audioDevice, _mute);
     }
-    _softwareSynthesizer = make_unique<SoftwareSynthesizer> (width, height);
+
+    SDL_ClearError (); 
+    _context = SDL_GL_CreateContext (_window);
+    if (!_context) {
+        cout << "CreateContext() failed: " << SDL_GetError () << std::endl; 
+        SDL_DestroyWindow (_window);
+        SDL_Quit (); 
+        _initialized = false;
+        return;
+    }
+
+    _gl.reset(new OpenGL(width, height));
+    _gl->init();
 }
 
 Application::~Application ()
 {
+    SDL_GL_DeleteContext (_context);
     SDL_CloseAudioDevice (_audioDevice);
     SDL_DestroyWindow (_window);
     SDL_Quit ();
@@ -265,6 +326,11 @@ void Application::handle_events ()
                     _running = false;
                     break;
                 }
+
+                case SDLK_F1: instrument = 0; break;
+                case SDLK_F2: instrument = 1; break;
+                case SDLK_F3: instrument = 2; break;
+                case SDLK_F4: instrument = 3; break;
 
                 case SDLK_SPACE: {
                     _mute = !_mute;
@@ -318,8 +384,9 @@ void Application::update ()
     if (!_initialized)
         return;
 
-    _softwareSynthesizer->update ();
-    _softwareSynthesizer->paint (_window);
+    // std::cout << "size: " << _sampleBufferForDrawing.size() << '\n';
+    _gl->draw (_sampleBufferForDrawing);
+    SDL_GL_SwapWindow(_window);
 }
 
 Synth::Synth (unsigned int maxVoices)

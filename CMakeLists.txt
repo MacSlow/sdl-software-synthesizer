@@ -6,20 +6,23 @@ set (CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 
 include (FindPkgConfig)
 pkg_check_modules (SDL2 sdl2 REQUIRED)
-include_directories (include ${SDL2_INCLUDE_DIRS})
+pkg_check_modules (GLEW glew REQUIRED)
+include_directories (include ${SDL2_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
-add_compile_options(-std=c++17 -Werror -Wall -pedantic -Os)
+add_compile_options(-std=c++17 -Werror -Wall -pedantic -O1)
 #add_compile_options(-std=c++17 -Werror -Wall -pedantic -O0 -ggdb -fsanitize=undefined,leak,address)
 
 add_library (ApplicationLib src/application.cpp)
-add_library (SoftwareSynthLib src/software-synthesizer.cpp)
+add_library (OpenGLLib src/opengl.cpp)
 
 add_executable (software-synthesizer src/main.cpp)
 target_link_libraries (software-synthesizer
 	ApplicationLib
-	SoftwareSynthLib
+	OpenGLLib
+	GL
 	#-fsanitize=leak,address,undefined
 	${SDL2_LDFLAGS}
+	${GLEW_LIBRARIES}
 	-pthread
 	-s
 )
