@@ -30,10 +30,14 @@ OpenGL::~OpenGL ()
 {
 }
  
-bool OpenGL::init ()
+bool OpenGL::init (size_t audioBufferSize)
 {
+    _audioBufferSize = audioBufferSize;
+    std::cout << "buffer size: " << _audioBufferSize << '\n';
+
     glClearColor (.25, .25, .25, 1.);
     glViewport (0, 0, _width, _height);
+    glLineWidth(2.f);
     glEnable (GL_BLEND);
 
     _program = createShaderProgram (vert, frag, true);
@@ -41,7 +45,7 @@ bool OpenGL::init ()
     glGenVertexArrays (1, &_vao);
     glGenBuffers (1, &_vbo);
 
-    size_t size = 2048;
+    size_t size = 2048;//_audioBufferSize;
     std::vector<GLfloat> quad (size);
     for (int i = 0; i < quad.size(); i += 2) {
         float x = static_cast<float>(i);
@@ -89,7 +93,6 @@ bool OpenGL::draw (std::vector<float>& sampleBufferForDrawing)
     std::vector<GLfloat> quad (size);
     for (int i = 0; i < quad.size(); i += 2) {
         float x = static_cast<float>(i);
-        // float y = sin (x*.005f*M_PI*(2));
         float y = sampleBufferForDrawing[i];
         quad[i] = (x/2.f/512.f - .5f)*(_width/_height);
         quad[i+1] = y;

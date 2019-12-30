@@ -10,7 +10,7 @@ class OpenGL
                 unsigned int height);
         ~OpenGL ();
  
-        bool init ();
+        bool init (size_t audioBufferSize);
         bool resize (unsigned int width, unsigned int height);
         bool draw (std::vector<float>& sampleBufferForDrawing);
 
@@ -24,6 +24,7 @@ class OpenGL
     private:
         unsigned int _width;
         unsigned int _height;
+        size_t _audioBufferSize;
         GLuint _vShaderId;
         GLuint _fShaderId;
         GLuint _program;

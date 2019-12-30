@@ -82,10 +82,10 @@ float oscSine (float baseFrequency,
     float maxHarmonics = static_cast<float>(harmonics);
 
     for (float i = .0f; i < maxHarmonics; (even ? i += 1.f : i += 2.f)) {
+        harmonic = 1.f + i;
+        amplitude = 1.f/harmonic;
         float frequency = baseFrequency*harmonic;
         result += amplitude*sin (w(frequency)*timeInSeconds);
-        amplitude = 1.f/harmonic;
-        harmonic = 1.f + i;
     }
 
     return result;
@@ -96,12 +96,12 @@ float oscNoise ()
     return (float) random() / (float) RAND_MAX;
 }
 
-float oscSawtooth (float freq, float timeInSeconds, int harmonics = 12)
+float oscSawtooth (float freq, float timeInSeconds, int harmonics = 16)
 {
     return oscSine (freq, timeInSeconds, harmonics, true);
 }
 
-float oscSquare (float freq, float timeInSeconds, int harmonics = 24)
+float oscSquare (float freq, float timeInSeconds, int harmonics = 32)
 {
     return oscSine (freq, timeInSeconds, harmonics, false);
 }
@@ -109,11 +109,15 @@ float oscSquare (float freq, float timeInSeconds, int harmonics = 24)
 // saw: all harmonic overtones
 // square/pulse: only odd harmonic overtones
 
+static bool makeDirty = false;
 static short instrument = 0;
+static short numBuffersPerSecond = 0;
 
 void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
     std::lock_guard<std::mutex> guard(synthDataMutex);
+
+    // auto start = std::chrono::steady_clock::now();
 
     SynthData* synthData = reinterpret_cast<SynthData*> (userdata);
     float secondPerTick = 1.f/static_cast<float> (synthData->sampleRate);
@@ -179,6 +183,11 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
                 break;
             }
 
+            if (makeDirty) {
+                sampleBuffer[i] += .5*oscNoise();
+                sampleBuffer[i+1] += .5*oscNoise();
+            }
+
             sampleBuffer[i] *= level;
             sampleBuffer[i+1] *= level;
         }
@@ -190,6 +199,11 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 	}
 
     synthData->ticks += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
+    ++numBuffersPerSecond;
+
+    // auto end = std::chrono::steady_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    // std::cout << "ms: " << duration.count() << '\n';
 }
 
 Application::Application (size_t width, size_t height)
@@ -273,7 +287,7 @@ Application::Application (size_t width, size_t height)
     }
 
     _gl.reset(new OpenGL(width, height));
-    _gl->init();
+    _gl->init(_sampleBufferSize);
 }
 
 Application::~Application ()
@@ -331,6 +345,7 @@ void Application::handle_events ()
                 case SDLK_F2: instrument = 1; break;
                 case SDLK_F3: instrument = 2; break;
                 case SDLK_F4: instrument = 3; break;
+                case SDLK_F5: makeDirty = !makeDirty; break;
 
                 case SDLK_SPACE: {
                     _mute = !_mute;
@@ -372,10 +387,20 @@ void Application::run ()
 
     _running = true;
 
+    auto start = std::chrono::steady_clock::now();
+
     while (_running) {
         handle_events ();
         update ();
          _synth.clearNotes ();
+
+        auto now = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - start);
+        if (duration.count() > 1.f) {
+            std::cout << "buffers/second: " << numBuffersPerSecond << '\n';
+            start = std::chrono::steady_clock::now();
+            numBuffersPerSecond = 0;
+        }
     }
 }
 
@@ -384,7 +409,6 @@ void Application::update ()
     if (!_initialized)
         return;
 
-    // std::cout << "size: " << _sampleBufferForDrawing.size() << '\n';
     _gl->draw (_sampleBufferForDrawing);
     SDL_GL_SwapWindow(_window);
 }
