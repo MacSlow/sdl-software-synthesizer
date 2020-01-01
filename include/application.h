@@ -133,7 +133,7 @@ class Application
         int _sampleRate = 48000;
         int _channels = 2;
         int _sampleBufferSize = 512;
-        unsigned int _maxVoices = 8;
+        unsigned int _maxVoices = 12;
         Synth _synth;
         std::shared_ptr<Notes> _notes;
         SynthData _synthData;

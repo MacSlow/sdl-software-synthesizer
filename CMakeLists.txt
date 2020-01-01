@@ -9,7 +9,7 @@ pkg_check_modules (SDL2 sdl2 REQUIRED)
 pkg_check_modules (GLEW glew REQUIRED)
 include_directories (include ${SDL2_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
-add_compile_options(-std=c++17 -Werror -Wall -pedantic -O1)
+add_compile_options(-std=c++17 -Werror -Wall -pedantic -Os)
 #add_compile_options(-std=c++17 -Werror -Wall -pedantic -O0 -ggdb -fsanitize=undefined,leak,address)
 
 add_library (ApplicationLib src/application.cpp)

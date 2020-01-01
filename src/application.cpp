@@ -96,12 +96,12 @@ float oscNoise ()
     return (float) random() / (float) RAND_MAX;
 }
 
-float oscSawtooth (float freq, float timeInSeconds, int harmonics = 16)
+float oscSawtooth (float freq, float timeInSeconds, int harmonics = 32)
 {
     return oscSine (freq, timeInSeconds, harmonics, true);
 }
 
-float oscSquare (float freq, float timeInSeconds, int harmonics = 32)
+float oscSquare (float freq, float timeInSeconds, int harmonics = 64)
 {
     return oscSine (freq, timeInSeconds, harmonics, false);
 }
@@ -134,10 +134,10 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 
         for (auto note : *synthData->notes) {
             float level = note.envelope.level (elapsedSeconds());
-            float detune1 = 20.f*(.5f + .5f*sin(w(.025f)*timeInSeconds));
-            float detune2 = 10.f*(.5f + .5f*sin(w(.025f)*timeInSeconds));
-            float lfo1 = .02f*sin(w(5.f)*timeInSeconds);
-            float lfo2 = .02f*sin(w(7.f)*timeInSeconds);
+            float detune1 = 20.f*(.5f + .5f*sin(w(.025f)));
+            float detune2 = 10.f*(.5f + .5f*sin(w(.025f)));
+            float lfo1 = .0f;//.02f*sin(w(5.f)*timeInSeconds);
+            float lfo2 = .0f;//.02f*sin(w(7.f)*timeInSeconds);
             switch (instrument) {
                 case 0: {
                     sampleBuffer[i] += level*oscSine (keyToPitch (note.noteId,
@@ -184,8 +184,8 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
             }
 
             if (makeDirty) {
-                sampleBuffer[i] += .5*oscNoise();
-                sampleBuffer[i+1] += .5*oscNoise();
+                sampleBuffer[i] += .125*oscNoise();
+                sampleBuffer[i+1] += .125*oscNoise();
             }
 
         }
