@@ -140,10 +140,10 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
             float lfo2 = .02f*sin(w(7.f)*timeInSeconds);
             switch (instrument) {
                 case 0: {
-                    sampleBuffer[i] += oscSine (keyToPitch (note.noteId,
+                    sampleBuffer[i] += level*oscSine (keyToPitch (note.noteId,
                                                             detune1) + lfo1,
                                                 timeInSeconds);
-                    sampleBuffer[i+1] += oscSine (keyToPitch (note.noteId,
+                    sampleBuffer[i+1] += level*oscSine (keyToPitch (note.noteId,
                                                               detune2) + lfo2,
                                                   timeInSeconds);
                     volume = .25f;
@@ -151,29 +151,29 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
                 }
 
                 case 1: {
-                    sampleBuffer[i] += oscSquare (keyToPitch (note.noteId,
+                    sampleBuffer[i] += level*oscSquare (keyToPitch (note.noteId,
                                                               detune1) + lfo1,
                                                   timeInSeconds);
-                    sampleBuffer[i+1] += oscSquare (keyToPitch (note.noteId,
+                    sampleBuffer[i+1] += level*oscSquare (keyToPitch (note.noteId,
                                                                 detune2) + lfo2,
                                                     timeInSeconds);
                     break;
                 }
 
                 case 2: {
-                    sampleBuffer[i] += oscSawtooth (keyToPitch (note.noteId,
+                    sampleBuffer[i] += level*oscSawtooth (keyToPitch (note.noteId,
                                                                 detune1) + lfo1,
                                                     timeInSeconds);
-                    sampleBuffer[i+1] += oscSawtooth (keyToPitch (note.noteId,
+                    sampleBuffer[i+1] += level*oscSawtooth (keyToPitch (note.noteId,
                                                                   detune2) + lfo2,
                                                       timeInSeconds);
                     break;
                 }
                 case 3: {
-                    sampleBuffer[i] += oscSawtooth (keyToPitch (note.noteId,
+                    sampleBuffer[i] += level*oscSawtooth (keyToPitch (note.noteId,
                                                                 detune1) + lfo1,
                                                     timeInSeconds);
-                    sampleBuffer[i+1] += oscSquare (keyToPitch (note.noteId,
+                    sampleBuffer[i+1] += level*oscSquare (keyToPitch (note.noteId,
                                                                 detune2) + lfo2,
                                                     timeInSeconds);
                     break;
@@ -188,8 +188,6 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
                 sampleBuffer[i+1] += .5*oscNoise();
             }
 
-            sampleBuffer[i] *= level;
-            sampleBuffer[i+1] *= level;
         }
         sampleBuffer[i] *= volume;
         sampleBuffer[i+1] *= volume;
