@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "opengl.h"
+#include "filters.h"
 
 using NoteId = int;
 
@@ -83,7 +84,6 @@ struct Note
     Envelope envelope;
 };
 
-
 using Notes = std::list<Note>;
 
 class Synth
@@ -108,6 +108,7 @@ struct SynthData
     float volume;
     std::shared_ptr<Notes> notes;
     float* sampleBufferForDrawing;
+    std::shared_ptr<Filter> filter;
 };
 
 class Application
@@ -134,6 +135,7 @@ class Application
         int _channels = 2;
         int _sampleBufferSize = 512;
         unsigned int _maxVoices = 12;
+        float _cutOffFrequency = 22000.f;
         Synth _synth;
         std::shared_ptr<Notes> _notes;
         SynthData _synthData;
