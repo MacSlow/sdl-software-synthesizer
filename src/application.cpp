@@ -161,7 +161,6 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
                     sampleBuffer[i+1] += level*oscSine (keyToPitch (note.noteId,
                                                               detune2) + lfo2,
                                                   timeInSeconds);
-                    volume = .25f;
                     break;
                 }
 
@@ -202,8 +201,12 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
                 sampleBuffer[i] += .125*oscNoise();
                 sampleBuffer[i+1] += .125*oscNoise();
             }
-
         }
+
+        // synthData->filter->setCutoffFreqHZ(10000.f + 10000.f*(.5f + .5f*sin(w(1.f)*elapsedSeconds())));
+        // sampleBuffer[i] = synthData->filter->filterIn(sampleBuffer[i]);
+        // sampleBuffer[i+1] = synthData->filter->filterIn(sampleBuffer[i+1]);
+
         sampleBuffer[i] *= volume;
         sampleBuffer[i+1] *= volume;
 
@@ -260,6 +263,10 @@ Application::Application (size_t width, size_t height)
     SDL_AudioSpec want;
     SDL_AudioSpec have;
 
+    _synthData.filter = std::make_shared<Filter> (_cutOffFrequency,
+                                                  1.f/48000.f,
+                                                  IIR::ORDER::OD4);
+    _synthData.filter->dumpParams();
     _synthData.sampleRate = _sampleRate;
     _synthData.ticks = 0;
     _synthData.volume = .1f;
@@ -385,12 +392,31 @@ void Application::handle_events ()
                 case SDLK_F3: instrument = 2; break;
                 case SDLK_F4: instrument = 3; break;
                 case SDLK_F5: makeDirty = !makeDirty; break;
-
+                case SDLK_PLUS : if (_synthData.volume <= .95f) {
+                                     _synthData.volume += .05f;
+                                     cout << "volume " << _synthData.volume << '\n';
+                                 }
+                                 break;
+                case SDLK_MINUS : if (_synthData.volume >= .05f) {
+                                     _synthData.volume -= .05f;
+                                     cout << "volume " << _synthData.volume << '\n';
+                                 }
+                                 break;
                 case SDLK_SPACE: {
                     _mute = !_mute;
                     SDL_PauseAudioDevice (_audioDevice, _mute);
                     break;
                 }
+                case SDLK_F6:
+                    _cutOffFrequency += 100.f;
+                    _synthData.filter->setCutoffFreqHZ(_cutOffFrequency);
+                    _synthData.filter->dumpParams();
+                break;
+                case SDLK_F7:
+                    _cutOffFrequency -= 100.f;
+                    _synthData.filter->setCutoffFreqHZ(_cutOffFrequency);
+                    _synthData.filter->dumpParams();
+                break;
 
                 // case SDLK_y: _synth.addNote (NOTE_C); _pressedKeys[SDLK_y] = true; break;
                 case SDLK_y: addNote (SDLK_y, NOTE_C); break;

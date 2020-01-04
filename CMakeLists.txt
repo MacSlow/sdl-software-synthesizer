@@ -19,12 +19,14 @@ add_compile_options(-std=c++17 -Werror -Wall -pedantic -Os)
 add_library (ApplicationLib src/application.cpp)
 add_library (OpenGLLib src/opengl.cpp)
 add_library (MidiLib src/midi.cpp)
+add_library (FiltersLib src/filters.cpp)
 
 add_executable (software-synthesizer src/main.cpp)
 target_link_libraries (software-synthesizer
 	ApplicationLib
 	OpenGLLib
 	MidiLib
+	FiltersLib
 	GL
 	#-fsanitize=leak,address,undefined
 	${SDL2_LDFLAGS}
