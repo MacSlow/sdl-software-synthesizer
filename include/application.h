@@ -6,9 +6,11 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <queue>
 #include <vector>
 
 #include "opengl.h"
+#include "midi.h"
 
 using NoteId = int;
 
@@ -81,6 +83,7 @@ struct Note
 {
     NoteId noteId;
     Envelope envelope;
+    float velocity = 1.f;
 };
 
 
@@ -93,6 +96,10 @@ class Synth
 
         void addNote(NoteId note);
         void removeNote(NoteId note);
+
+        void addNoteMidi(NoteId noteId, float velocity, float timeStamp);
+        void removeNoteMidi(NoteId noteId, float velocity, float timeStamp);
+
         std::shared_ptr<Notes> notes();
         void clearNotes ();
 
@@ -110,6 +117,14 @@ struct SynthData
     float* sampleBufferForDrawing;
 };
 
+struct MidiMessage
+{
+    MessageType type;
+    NoteId noteId;
+    float velocity;
+    float timeStamp;
+};
+
 class Application
 {
     public:
@@ -122,6 +137,8 @@ class Application
     private:
         void initialize ();
         void handle_events ();
+        static void readMidiKeys (const Midi& midi,
+                                  std::queue<MessageData>& queue);
 
     private:
         bool _initialized = false;
@@ -140,6 +157,8 @@ class Application
         std::map<SDL_Keycode, bool> _pressedKeys;
         std::vector<float> _sampleBufferForDrawing;
         std::shared_ptr<OpenGL> _gl;
+        Midi _midi;
+        std::queue<MessageData> _midiMessageQueue;
 };
 
 #endif // _APPLICATION_H

@@ -1,17 +1,18 @@
 #include <algorithm>
-#include <iostream>
 #include <chrono>
-#include <sstream>
+#include <complex>
+#include <iostream>
 #include <memory>
 #include <mutex>
-#include <complex>
+#include <sstream>
+#include <thread>
 
 #include "application.h"
 
 using namespace std;
 using namespace std::chrono;
 
-#define WIN_TITLE "8-way polyphonic synthesizer by MacSlow"
+#define WIN_TITLE "12-way polyphonic synthesizer by MacSlow"
 #define newline '\n'
 
 #define NOTE_C   40
@@ -29,6 +30,7 @@ using namespace std::chrono;
 #define NOTE_C2  52
 
 std::mutex synthDataMutex;
+std::mutex midiMessageQueueMutex;
 
 static float elapsedSeconds ()
 {
@@ -65,6 +67,21 @@ void Application::initialize ()
               .0f);
 
     _initialized = true;
+
+    std::thread midiKeyReadingThread (readMidiKeys,
+                                      std::ref (_midi),
+                                      std::ref(_midiMessageQueue));
+    midiKeyReadingThread.detach();
+}
+
+void Application::readMidiKeys(const Midi& midi, std::queue<MessageData>& queue)
+{
+    while (true) {
+        MessageData messageData = midi.read();
+
+        std::lock_guard<std::mutex> guard(midiMessageQueueMutex);
+        queue.push (messageData);
+    }
 }
 
 float w(float hertz)
@@ -106,9 +123,6 @@ float oscSquare (float freq, float timeInSeconds, int harmonics = 64)
     return oscSine (freq, timeInSeconds, harmonics, false);
 }
 
-// saw: all harmonic overtones
-// square/pulse: only odd harmonic overtones
-
 static bool makeDirty = false;
 static short instrument = 0;
 static short numBuffersPerSecond = 0;
@@ -134,6 +148,7 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 
         for (auto note : *synthData->notes) {
             float level = note.envelope.level (elapsedSeconds());
+            level *= note.velocity;
             float detune1 = 20.f*(.5f + .5f*sin(w(.025f)));
             float detune2 = 10.f*(.5f + .5f*sin(w(.025f)));
             float lfo1 = .0f;//.02f*sin(w(5.f)*timeInSeconds);
@@ -312,6 +327,32 @@ void Application::handle_events ()
         _pressedKeys[key] = false;
     };
 
+    {
+        std::lock_guard<std::mutex> guard(midiMessageQueueMutex);
+        if (_midiMessageQueue.size() > 0) {
+            auto message = _midiMessageQueue.front();
+
+            MessageType type = std::get<0>(message);
+            char noteId = std::get<1> (message);
+            char velocity = std::get<2> (message);
+            float timeStamp = std::get<3> (message);
+
+            _midiMessageQueue.pop();
+
+            if (type == MessageType::NoteOff) {
+                _synth.removeNoteMidi (static_cast<NoteId>(noteId - 20),
+                                       static_cast<float>(velocity)/128.f,
+                                       timeStamp);
+            }
+
+            if (type == MessageType::NoteOn) {
+                _synth.addNoteMidi (static_cast<NoteId>(noteId - 20),
+                                    static_cast<float>(velocity)/128.f,
+                                    timeStamp);
+            }
+        }
+    }
+
     std::lock_guard<std::mutex> guard(synthDataMutex);
     while (SDL_PollEvent (&event)) {
         switch (event.type) {
@@ -441,7 +482,6 @@ void Synth::addNote (NoteId noteId)
 
 void Synth::removeNote (NoteId noteId)
 {
-
     auto result = find_if (_notes->begin(),
                            _notes->end(),
                            [noteId] (Note note) {
@@ -450,6 +490,43 @@ void Synth::removeNote (NoteId noteId)
 
     if (result != _notes->end()) {
         (*result).envelope.noteOff (elapsedSeconds());
+    }
+}
+
+void Synth::addNoteMidi(NoteId noteId, float velocity, float timeStamp)
+{
+    if (_notes->size() < _maxVoices) {
+        auto result = find_if (_notes->begin(),
+                               _notes->end(),
+                               [noteId] (Note note) {
+                                   return note.noteId == noteId;
+                               });
+        if (result != _notes->end()) {
+            if ((*result).envelope.noteReleased) {
+                (*result).envelope.noteOn (timeStamp);
+                (*result).velocity = velocity;
+                (*result).envelope.noteOff (.0f);
+            }
+        } else {
+            Note note;
+            note.noteId = noteId;
+            note.envelope.noteOn (timeStamp);
+            note.velocity = velocity;
+            _notes->emplace_back (note);
+        }
+    }
+}
+
+void Synth::removeNoteMidi(NoteId noteId, float velocity, float timeStamp)
+{
+    auto result = find_if (_notes->begin(),
+                           _notes->end(),
+                           [noteId] (Note note) {
+                               return note.noteId == noteId;
+                           });
+
+    if (result != _notes->end()) {
+        (*result).envelope.noteOff (timeStamp);
     }
 }
 

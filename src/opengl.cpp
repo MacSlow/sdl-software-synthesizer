@@ -35,7 +35,7 @@ bool OpenGL::init (size_t audioBufferSize)
     _audioBufferSize = audioBufferSize;
     std::cout << "buffer size: " << _audioBufferSize << '\n';
 
-    glClearColor (.25, .25, .25, 1.);
+    glClearColor (.075f, .075f, .075f, 1.);
     glViewport (0, 0, _width, _height);
     glLineWidth(2.f);
     glEnable (GL_BLEND);

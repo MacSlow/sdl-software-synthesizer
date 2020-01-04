@@ -20,7 +20,7 @@ const char frag[] = GLSL(
 
     void main()
     {    
-        fragColor = vec4 (1.);
+        fragColor = vec4 (.05, 1., .05, 1.);
     }    
 );
 
