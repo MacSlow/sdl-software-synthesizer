@@ -4,6 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <sstream>
 #include <thread>
 
@@ -11,6 +12,7 @@
 
 using namespace std;
 using namespace std::chrono;
+using std::make_shared;
 
 #define WIN_TITLE "12-way polyphonic synthesizer by MacSlow"
 #define newline '\n'
@@ -123,6 +125,164 @@ float oscSquare (float freq, float timeInSeconds, int harmonics = 64)
     return oscSine (freq, timeInSeconds, harmonics, false);
 }
 
+void fillVoiceBuffer (int instrument,
+                      std::vector<float>& buffer,
+                      Note& note,
+                      int ticks,
+                      float secondPerTick,
+                      float detuneLeft,
+                      float detuneRight,
+                      bool makeDirty)
+{
+    for (int i = 0; i < buffer.size(); i += 2) {
+        int left = i;
+        int right = i + 1;
+        float timeInSeconds = static_cast<float> (ticks + i/2) * secondPerTick;
+        float level = note.envelope.level (elapsedSeconds());
+
+        level *= note.velocity;
+        buffer[left] = .0f;
+        buffer[right] = .0f;
+
+        switch (instrument) {
+            case 0 : {
+                buffer[left]  = oscSine (keyToPitch (note.noteId,
+                                                           detuneLeft),
+                                               timeInSeconds);
+                buffer[right] = oscSine (keyToPitch (note.noteId,
+                                                           detuneRight),
+                                               timeInSeconds);
+
+                buffer[left]  += oscSine (keyToPitch (note.noteId,
+                                                           detuneLeft*1.5f),
+                                               timeInSeconds);
+                buffer[right] += oscSine (keyToPitch (note.noteId,
+                                                           detuneRight*1.5f),
+                                               timeInSeconds);
+
+                buffer[left]  += oscSine (keyToPitch (note.noteId,
+                                                           detuneLeft*3.f),
+                                               timeInSeconds);
+                buffer[right] += oscSine (keyToPitch (note.noteId,
+                                                           detuneRight*3.f),
+                                               timeInSeconds);
+
+                buffer[left]  += oscSine (keyToPitch (note.noteId,
+                                                           detuneLeft*4.5f),
+                                               timeInSeconds);
+                buffer[right] += oscSine (keyToPitch (note.noteId,
+                                                           detuneRight*4.5f),
+                                               timeInSeconds);
+                break;
+            }
+
+            case 1 : {
+                buffer[left]  = oscSquare (keyToPitch (note.noteId,
+                                                       detuneLeft),
+                                           timeInSeconds);
+                buffer[right] = oscSquare (keyToPitch (note.noteId,
+                                                       detuneRight),
+                                           timeInSeconds);
+
+                buffer[left]  += oscSquare (keyToPitch (note.noteId,
+                                                        detuneLeft*1.5f),
+                                            timeInSeconds);
+                buffer[right] += oscSquare (keyToPitch (note.noteId,
+                                                        detuneRight*1.5f),
+                                            timeInSeconds);
+
+                buffer[left]  += oscSquare (keyToPitch (note.noteId,
+                                                        detuneLeft*3.f),
+                                            timeInSeconds);
+                buffer[right] += oscSquare (keyToPitch (note.noteId,
+                                                        detuneRight*3.f),
+                                            timeInSeconds);
+
+                buffer[left]  += oscSquare (keyToPitch (note.noteId,
+                                                        detuneLeft*4.5f),
+                                            timeInSeconds);
+                buffer[right] += oscSquare (keyToPitch (note.noteId,
+                                                        detuneRight*4.5f),
+                                            timeInSeconds);
+                break;
+            }
+
+            case 2 : {
+                buffer[left]  = oscSawtooth (keyToPitch (note.noteId,
+                                                         detuneLeft),
+                                             timeInSeconds);
+                buffer[right] = oscSawtooth (keyToPitch (note.noteId,
+                                                         detuneRight),
+                                             timeInSeconds);
+
+                buffer[left]  += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneLeft*1.5f),
+                                              timeInSeconds);
+                buffer[right] += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneRight*1.5f),
+                                              timeInSeconds);
+
+                buffer[left]  += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneLeft*3.f),
+                                              timeInSeconds);
+                buffer[right] += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneRight*3.f),
+                                              timeInSeconds);
+
+                buffer[left]  += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneLeft*4.5f),
+                                              timeInSeconds);
+                buffer[right] += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneRight*4.5f),
+                                              timeInSeconds);
+                break;
+            }
+
+            case 3 : {
+                buffer[left]  = oscSawtooth (keyToPitch (note.noteId,
+                                                         detuneLeft),
+                                             timeInSeconds);
+                buffer[right] = oscSquare (keyToPitch (note.noteId,
+                                                       detuneRight),
+                                           timeInSeconds);
+
+                buffer[left]  += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneLeft*1.5f),
+                                              timeInSeconds);
+                buffer[right] += oscSquare (keyToPitch (note.noteId,
+                                                        detuneRight*1.5f),
+                                            timeInSeconds);
+
+                buffer[left]  += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneLeft*3.f),
+                                              timeInSeconds);
+                buffer[right] += oscSquare (keyToPitch (note.noteId,
+                                                        detuneRight*3.f),
+                                            timeInSeconds);
+
+                buffer[left]  += oscSawtooth (keyToPitch (note.noteId,
+                                                          detuneLeft*4.5f),
+                                              timeInSeconds);
+                buffer[right] += oscSquare (keyToPitch (note.noteId,
+                                                        detuneRight*4.5f),
+                                            timeInSeconds);
+                break;
+            }
+
+            default :
+            break;
+        }
+
+        buffer[left] *= level;
+        buffer[right] *= level;
+
+        if (makeDirty) {
+            buffer[left] += .125*oscNoise();
+            buffer[right] += .125*oscNoise();
+        }
+    }
+}
+
 static bool makeDirty = false;
 static short instrument = 0;
 static short numBuffersPerSecond = 0;
@@ -131,17 +291,57 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
     std::lock_guard<std::mutex> guard(synthDataMutex);
 
-    // auto start = std::chrono::steady_clock::now();
+    auto start = std::chrono::steady_clock::now();
 
     SynthData* synthData = reinterpret_cast<SynthData*> (userdata);
     float secondPerTick = 1.f/static_cast<float> (synthData->sampleRate);
     float volume = synthData->volume;
-    float timeInSeconds = .0f;
     SDL_memset (stream, 0, lengthInBytes);
     int sizePerSample = static_cast<int> (sizeof (float));
-
+    shared_ptr<vector<vector<float>>> voiceBuffers = synthData->voiceBuffers;
     float* sampleBuffer = reinterpret_cast<float*> (stream);
-	for (int i = 0; i < lengthInBytes/sizePerSample; i += 2) {
+
+    int voice = 0;
+    float detuneLeft = 20.f*(.5f + .5f*sin (w (.025f)));
+    float detuneRight = 10.f*(.5f + .5f*sin (w (.025f)));
+    std::vector<std::thread> threads;
+    for (auto note : *synthData->notes) {
+        threads.push_back (std::thread (fillVoiceBuffer,
+                                        instrument,
+                                        std::ref (voiceBuffers->at(voice)),
+                                        std::ref (note),
+                                        synthData->ticks,
+                                        secondPerTick,
+                                        detuneLeft,
+                                        detuneRight,
+                                        makeDirty));
+        ++voice;
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    for (int i = 0; i < lengthInBytes/sizePerSample; i += 2) {
+        int left = i;
+        int right = i + 1;
+        float sumLeft = .0f;
+        float sumRight = .0f;
+
+        for (int voice = 0; voice < synthData->notes->size(); ++voice) {
+            sumLeft += voiceBuffers->at(voice)[left];
+            sumRight += voiceBuffers->at(voice)[right];
+        }
+
+        sampleBuffer[left] = volume*sumLeft;
+        sampleBuffer[right] = volume*sumRight;
+
+        synthData->sampleBufferForDrawing[left] = sampleBuffer[left];
+        synthData->sampleBufferForDrawing[right] = sampleBuffer[right];
+    }
+
+    // float* sampleBuffer = reinterpret_cast<float*> (stream);
+	/*for (int i = 0; i < lengthInBytes/sizePerSample; i += 2) {
 		timeInSeconds = static_cast<float> (synthData->ticks + i/2) * secondPerTick;
         sampleBuffer[i] = .0f;
         sampleBuffer[i+1] = .0f;
@@ -149,77 +349,21 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         for (auto note : *synthData->notes) {
             float level = note.envelope.level (elapsedSeconds());
             level *= note.velocity;
-            float detune1 = 20.f*(.5f + .5f*sin(w(.025f)));
-            float detune2 = 10.f*(.5f + .5f*sin(w(.025f)));
-            float lfo1 = .0f;//.02f*sin(w(5.f)*timeInSeconds);
-            float lfo2 = .0f;//.02f*sin(w(7.f)*timeInSeconds);
-            switch (instrument) {
-                case 0: {
-                    sampleBuffer[i] += level*oscSine (keyToPitch (note.noteId,
-                                                            detune1) + lfo1,
-                                                timeInSeconds);
-                    sampleBuffer[i+1] += level*oscSine (keyToPitch (note.noteId,
-                                                              detune2) + lfo2,
-                                                  timeInSeconds);
-                    break;
-                }
 
-                case 1: {
-                    sampleBuffer[i] += level*oscSquare (keyToPitch (note.noteId,
-                                                              detune1) + lfo1,
-                                                  timeInSeconds);
-                    sampleBuffer[i+1] += level*oscSquare (keyToPitch (note.noteId,
-                                                                detune2) + lfo2,
-                                                    timeInSeconds);
-                    break;
-                }
-
-                case 2: {
-                    sampleBuffer[i] += level*oscSawtooth (keyToPitch (note.noteId,
-                                                                detune1) + lfo1,
-                                                    timeInSeconds);
-                    sampleBuffer[i+1] += level*oscSawtooth (keyToPitch (note.noteId,
-                                                                  detune2) + lfo2,
-                                                      timeInSeconds);
-                    break;
-                }
-                case 3: {
-                    sampleBuffer[i] += level*oscSawtooth (keyToPitch (note.noteId,
-                                                                detune1) + lfo1,
-                                                    timeInSeconds);
-                    sampleBuffer[i+1] += level*oscSquare (keyToPitch (note.noteId,
-                                                                detune2) + lfo2,
-                                                    timeInSeconds);
-                    break;
-                }
-
-                default :
-                break;
-            }
-
-            if (makeDirty) {
-                sampleBuffer[i] += .125*oscNoise();
-                sampleBuffer[i+1] += .125*oscNoise();
-            }
         }
 
         // synthData->filter->setCutoffFreqHZ(10000.f + 10000.f*(.5f + .5f*sin(w(1.f)*elapsedSeconds())));
         // sampleBuffer[i] = synthData->filter->filterIn(sampleBuffer[i]);
         // sampleBuffer[i+1] = synthData->filter->filterIn(sampleBuffer[i+1]);
 
-        sampleBuffer[i] *= volume;
-        sampleBuffer[i+1] *= volume;
-
-        synthData->sampleBufferForDrawing[i] = sampleBuffer[i];
-        synthData->sampleBufferForDrawing[i+1] = sampleBuffer[i+1];
-	}
+	}*/
 
     synthData->ticks += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
     ++numBuffersPerSecond;
 
-    // auto end = std::chrono::steady_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    // std::cout << "ms: " << duration.count() << '\n';
+    auto end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "ms: " << duration.count() << '\n';
 }
 
 Application::Application (size_t width, size_t height)
@@ -230,6 +374,15 @@ Application::Application (size_t width, size_t height)
     , _sampleBufferForDrawing(_sampleBufferSize*2)
 {
     initialize ();
+
+    _voiceThreads.reserve(_maxVoices);
+    _voiceBuffers.reserve(_maxVoices);
+    for (size_t voice = 0; voice < _maxVoices; ++voice) {
+        _voiceBuffers.push_back(std::vector<float> (_sampleBufferSize*_channels));
+        std::fill_n (_voiceBuffers[voice].begin(),
+                     _sampleBufferSize*_channels,
+                     .0f);
+    }
 
     SDL_GL_SetAttribute (SDL_GL_RED_SIZE, 8);
     SDL_GL_SetAttribute (SDL_GL_GREEN_SIZE, 8);
@@ -272,6 +425,7 @@ Application::Application (size_t width, size_t height)
     _synthData.volume = .1f;
     _synthData.notes = _synth.notes();
     _synthData.sampleBufferForDrawing = _sampleBufferForDrawing.data();
+    _synthData.voiceBuffers = make_shared<vector<vector<float>>>(_voiceBuffers);
 
     SDL_zero (want);
     want.freq = _sampleRate;
