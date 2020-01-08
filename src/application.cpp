@@ -14,7 +14,7 @@ using namespace std;
 using namespace std::chrono;
 using std::make_shared;
 
-#define WIN_TITLE "12-way polyphonic synthesizer by MacSlow"
+#define WIN_TITLE "16-way polyphonic synthesizer by MacSlow"
 #define newline '\n'
 
 #define NOTE_C   40
@@ -147,32 +147,32 @@ void fillVoiceBuffer (int instrument,
         switch (instrument) {
             case 0 : {
                 buffer[left]  = oscSine (keyToPitch (note.noteId,
-                                                           detuneLeft),
-                                               timeInSeconds);
+                                                     detuneLeft),
+                                         timeInSeconds);
                 buffer[right] = oscSine (keyToPitch (note.noteId,
-                                                           detuneRight),
-                                               timeInSeconds);
+                                                     detuneRight),
+                                         timeInSeconds);
 
                 buffer[left]  += oscSine (keyToPitch (note.noteId,
-                                                           detuneLeft*1.5f),
-                                               timeInSeconds);
+                                                      detuneLeft*1.5f),
+                                          timeInSeconds);
                 buffer[right] += oscSine (keyToPitch (note.noteId,
-                                                           detuneRight*1.5f),
-                                               timeInSeconds);
+                                                      detuneRight*1.5f),
+                                          timeInSeconds);
 
                 buffer[left]  += oscSine (keyToPitch (note.noteId,
-                                                           detuneLeft*3.f),
-                                               timeInSeconds);
+                                                      detuneLeft*3.f),
+                                          timeInSeconds);
                 buffer[right] += oscSine (keyToPitch (note.noteId,
-                                                           detuneRight*3.f),
-                                               timeInSeconds);
+                                                      detuneRight*3.f),
+                                          timeInSeconds);
 
                 buffer[left]  += oscSine (keyToPitch (note.noteId,
-                                                           detuneLeft*4.5f),
-                                               timeInSeconds);
+                                                      detuneLeft*4.5f),
+                                          timeInSeconds);
                 buffer[right] += oscSine (keyToPitch (note.noteId,
-                                                           detuneRight*4.5f),
-                                               timeInSeconds);
+                                                      detuneRight*4.5f),
+                                          timeInSeconds);
                 break;
             }
 
@@ -291,7 +291,7 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
     std::lock_guard<std::mutex> guard(synthDataMutex);
 
-    auto start = std::chrono::steady_clock::now();
+    // auto start = std::chrono::steady_clock::now();
 
     SynthData* synthData = reinterpret_cast<SynthData*> (userdata);
     float secondPerTick = 1.f/static_cast<float> (synthData->sampleRate);
@@ -301,21 +301,19 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
     shared_ptr<vector<vector<float>>> voiceBuffers = synthData->voiceBuffers;
     float* sampleBuffer = reinterpret_cast<float*> (stream);
 
-    int voice = 0;
     float detuneLeft = 20.f*(.5f + .5f*sin (w (.025f)));
     float detuneRight = 10.f*(.5f + .5f*sin (w (.025f)));
     std::vector<std::thread> threads;
-    for (auto note : *synthData->notes) {
+    for (auto& note : *synthData->notes) {
         threads.push_back (std::thread (fillVoiceBuffer,
                                         instrument,
-                                        std::ref (voiceBuffers->at(voice)),
+                                        std::ref (voiceBuffers->at(note.voice)),
                                         std::ref (note),
                                         synthData->ticks,
                                         secondPerTick,
                                         detuneLeft,
                                         detuneRight,
                                         makeDirty));
-        ++voice;
     }
 
     for (auto& t : threads) {
@@ -328,9 +326,9 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         float sumLeft = .0f;
         float sumRight = .0f;
 
-        for (int voice = 0; voice < synthData->notes->size(); ++voice) {
-            sumLeft += voiceBuffers->at(voice)[left];
-            sumRight += voiceBuffers->at(voice)[right];
+        for (const auto& note : *synthData->notes) {
+            sumLeft += voiceBuffers->at(note.voice)[left];
+            sumRight += voiceBuffers->at(note.voice)[right];
         }
 
         sampleBuffer[left] = volume*sumLeft;
@@ -340,30 +338,12 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         synthData->sampleBufferForDrawing[right] = sampleBuffer[right];
     }
 
-    // float* sampleBuffer = reinterpret_cast<float*> (stream);
-	/*for (int i = 0; i < lengthInBytes/sizePerSample; i += 2) {
-		timeInSeconds = static_cast<float> (synthData->ticks + i/2) * secondPerTick;
-        sampleBuffer[i] = .0f;
-        sampleBuffer[i+1] = .0f;
-
-        for (auto note : *synthData->notes) {
-            float level = note.envelope.level (elapsedSeconds());
-            level *= note.velocity;
-
-        }
-
-        // synthData->filter->setCutoffFreqHZ(10000.f + 10000.f*(.5f + .5f*sin(w(1.f)*elapsedSeconds())));
-        // sampleBuffer[i] = synthData->filter->filterIn(sampleBuffer[i]);
-        // sampleBuffer[i+1] = synthData->filter->filterIn(sampleBuffer[i+1]);
-
-	}*/
-
     synthData->ticks += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
     ++numBuffersPerSecond;
 
-    auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cout << "ms: " << duration.count() << '\n';
+    // auto end = std::chrono::steady_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    // std::cout << "ms: " << duration.count() << '\n';
 }
 
 Application::Application (size_t width, size_t height)
@@ -606,20 +586,10 @@ void Application::run ()
 
     _running = true;
 
-    auto start = std::chrono::steady_clock::now();
-
     while (_running) {
         handle_events ();
         update ();
          _synth.clearNotes ();
-
-        auto now = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - start);
-        if (duration.count() > 1.f) {
-            std::cout << "buffers/second: " << numBuffersPerSecond << '\n';
-            start = std::chrono::steady_clock::now();
-            numBuffersPerSecond = 0;
-        }
     }
 }
 
@@ -636,6 +606,9 @@ Synth::Synth (unsigned int maxVoices)
     : _notes {std::make_shared<Notes>()}
     , _maxVoices {maxVoices}
 {
+    for (int voice = 0; voice < _maxVoices; ++voice) {
+        _voiceAllocation.push_back(false);
+    }
 }
 
 void Synth::addNote (NoteId noteId)
@@ -655,6 +628,7 @@ void Synth::addNote (NoteId noteId)
             Note note;
             note.noteId = noteId;
             note.envelope.noteOn (elapsedSeconds());
+            note.voice = allocVoice();
             _notes->emplace_back (note);
         }
     }
@@ -692,6 +666,7 @@ void Synth::addNoteMidi(NoteId noteId, float velocity, float timeStamp)
             note.noteId = noteId;
             note.envelope.noteOn (timeStamp);
             note.velocity = velocity;
+            note.voice = allocVoice();
             _notes->emplace_back (note);
         }
     }
@@ -713,10 +688,33 @@ void Synth::removeNoteMidi(NoteId noteId, float velocity, float timeStamp)
 void Synth::clearNotes ()
 {
     std::lock_guard<std::mutex> guard(synthDataMutex);
-    _notes->remove_if([](Note& note){ return note.envelope.level(elapsedSeconds()) < .0001f; });
+    _notes->remove_if([this](Note& note){
+        bool flag = note.envelope.level(elapsedSeconds()) < .0001f;
+        if (flag) {
+            freeVoice(note.voice);
+        }
+        return flag;
+    });
 }
 
 std::shared_ptr<Notes> Synth::notes()
 {
     return _notes;
+}
+
+int Synth::allocVoice()
+{
+    auto result = find (_voiceAllocation.begin(), _voiceAllocation.end(), false);
+    if (result != _voiceAllocation.end()) {
+        int index = std::distance(_voiceAllocation.begin(), result);
+        _voiceAllocation[index] = true;
+        return index;
+    } else {
+        return -1;
+    }
+}
+
+void Synth::freeVoice(int voice)
+{
+    _voiceAllocation[voice] = false;
 }

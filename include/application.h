@@ -91,6 +91,7 @@ struct Envelope
 struct Note
 {
     NoteId noteId;
+    int voice;
     Envelope envelope;
     float velocity = 1.f;
 };
@@ -110,10 +111,13 @@ class Synth
 
         shared_ptr<Notes> notes();
         void clearNotes ();
+        int allocVoice();
+        void freeVoice(int voice);
 
     private:
         shared_ptr<Notes> _notes;
         unsigned int _maxVoices;
+        vector<bool> _voiceAllocation;
 };
 
 struct SynthData
@@ -160,7 +164,7 @@ class Application
         int _sampleRate = 48000;
         int _channels = 2;
         int _sampleBufferSize = 512;
-        unsigned int _maxVoices = 12;
+        unsigned int _maxVoices = 16;
         float _cutOffFrequency = 22000.f;
         Synth _synth;
         shared_ptr<Notes> _notes;
