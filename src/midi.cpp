@@ -5,7 +5,7 @@
 
 #include "midi.h"
 
-Midi::Midi (std::string port)
+Midi::Midi (const std::string& port)
 	: _midiPort {nullptr}
 	, _initialized {false}
 {
@@ -13,7 +13,7 @@ Midi::Midi (std::string port)
 								   nullptr,
 								   port.c_str(),
 								   SND_RAWMIDI_SYNC);
-	if (result > 0) {
+	if (result == 0) {
 		_initialized = true;
 	}
 }
@@ -78,6 +78,13 @@ MessageData Midi::read () const
 
 Midi::~Midi ()
 {
-	snd_rawmidi_close (_midiPort);
-	_midiPort = nullptr; 
+	if (_initialized) {
+		snd_rawmidi_close (_midiPort);
+		_midiPort = nullptr;
+	}
+}
+
+bool Midi::initialized () const
+{
+	return _initialized;
 }

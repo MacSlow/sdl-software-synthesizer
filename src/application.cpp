@@ -70,10 +70,12 @@ void Application::initialize ()
 
     _initialized = true;
 
-    std::thread midiKeyReadingThread (readMidiKeys,
-                                      std::ref (_midi),
-                                      std::ref(_midiMessageQueue));
-    midiKeyReadingThread.detach();
+	if (_midi.initialized()) {
+        std::thread midiKeyReadingThread (readMidiKeys,
+										  std::ref (_midi),
+										  std::ref(_midiMessageQueue));
+        midiKeyReadingThread.detach();
+	}
 }
 
 void Application::readMidiKeys(const Midi& midi, std::queue<MessageData>& queue)
@@ -346,12 +348,13 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
     // std::cout << "ms: " << duration.count() << '\n';
 }
 
-Application::Application (size_t width, size_t height)
+Application::Application (size_t width, size_t height, const string& midiPort)
     : _initialized {false}
     , _window {nullptr}
     , _running {false}
     , _synth {Synth(_maxVoices)}
     , _sampleBufferForDrawing(_sampleBufferSize*2)
+	, _midi{midiPort}
 {
     initialize ();
 
@@ -468,7 +471,7 @@ void Application::handle_events ()
         _pressedKeys[key] = false;
     };
 
-    {
+	if (_midi.initialized()) {
         std::lock_guard<std::mutex> guard(midiMessageQueueMutex);
         if (_midiMessageQueue.size() > 0) {
             auto message = _midiMessageQueue.front();

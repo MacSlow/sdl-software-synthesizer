@@ -142,7 +142,9 @@ struct MidiMessage
 class Application
 {
     public:
-        Application (size_t width, size_t height);
+        Application (size_t width,
+                     size_t height,
+                     const std::string& midiPort = "hw:1,0,0");
         ~Application ();
 
         void run ();

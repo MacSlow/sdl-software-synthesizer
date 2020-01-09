@@ -21,10 +21,11 @@ using  MessageData = std::tuple<MessageType, char, char, float>;
 class Midi
 {
 	public:
-		explicit Midi (std::string port = "hw:2,0,0");
+		explicit Midi (const std::string& port = "hw:1,0,0");
 		~Midi ();
 
 		MessageData read () const;
+		bool initialized () const;
 
 	private:
 		snd_rawmidi_t* _midiPort;
