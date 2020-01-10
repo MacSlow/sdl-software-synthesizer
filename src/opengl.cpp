@@ -45,11 +45,11 @@ bool OpenGL::init (size_t audioBufferSize)
     glGenVertexArrays (1, &_vao);
     glGenBuffers (1, &_vbo);
 
-    size_t size = 2048;//_audioBufferSize;
+    size_t size = _audioBufferSize;
     std::vector<GLfloat> quad (size);
     for (int i = 0; i < quad.size(); i += 2) {
         float x = static_cast<float>(i);
-        quad[i] = (x/2.f/512.f - .5f)*(_width/_height);
+        quad[i] = (x/_audioBufferSize)*(_width/_height) - 1.f;
         quad[i+1] = .0f;
     }
 
@@ -94,13 +94,13 @@ bool OpenGL::draw (std::vector<float>& sampleBufferForDrawing)
     for (int i = 0; i < quad.size(); i += 2) {
         float x = static_cast<float>(i);
         float y = sampleBufferForDrawing[i];
-        quad[i] = (x/2.f/512.f - .5f)*(_width/_height);
+        quad[i] = (x/_audioBufferSize)*(_width/_height) - 1.f;
         quad[i+1] = y;
     }
 
     glNamedBufferSubData(_vbo, 0, quad.size() * sizeof (GLfloat), quad.data());
 
-    std::vector<unsigned short> indices(512);
+    std::vector<unsigned short> indices(_audioBufferSize/4);
     int index = 0;
     std::generate(indices.begin(), indices.end(), [&](){
         return index++;
