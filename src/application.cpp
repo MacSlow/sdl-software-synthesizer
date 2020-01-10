@@ -76,13 +76,25 @@ void Application::initialize ()
 										  std::ref(_midiMessageQueue));
         midiKeyReadingThread.detach();
 	}
+
+    if (_midi.initialized()) {
+        std::thread midiDiscoThread (disco,
+                                          std::ref (_midi));
+        midiDiscoThread.detach();
+    }
+}
+
+void Application::disco (const Midi& midi)
+{
+    while (true) {
+        midi.padColorCycle();
+    }
 }
 
 void Application::readMidiKeys(const Midi& midi, std::queue<MessageData>& queue)
 {
     while (true) {
         MessageData messageData = midi.read();
-
         std::lock_guard<std::mutex> guard(midiMessageQueueMutex);
         queue.push (messageData);
     }
@@ -91,6 +103,14 @@ void Application::readMidiKeys(const Midi& midi, std::queue<MessageData>& queue)
 float w(float hertz)
 {
     return 2.f*M_PI*hertz;
+}
+
+float customSin (float value)
+{
+    float x = value * .5f/M_PI;
+    x -= floorf(x);
+    return 20.785f*x*(x*x  - 1.5f*x + .5f);
+    // return sinf (value);
 }
 
 float oscSine (float baseFrequency,
@@ -106,7 +126,7 @@ float oscSine (float baseFrequency,
         harmonic = 1.f + i;
         amplitude = 1.f/harmonic;
         float frequency = baseFrequency*harmonic;
-        result += amplitude*sin (w(frequency)*timeInSeconds);
+        result += amplitude*customSin (w(frequency)*timeInSeconds);
     }
 
     return result;
@@ -140,7 +160,7 @@ void fillVoiceBuffer (int instrument,
         int left = i;
         int right = i + 1;
         float timeInSeconds = static_cast<float> (ticks + i/2) * secondPerTick;
-        float level = note.envelope.level (elapsedSeconds());
+        float level = note.amplitudeADSR.level (elapsedSeconds());
 
         level *= note.velocity;
         buffer[left] = .0f;
@@ -268,6 +288,11 @@ void fillVoiceBuffer (int instrument,
                 buffer[right] += oscSquare (keyToPitch (note.noteId,
                                                         detuneRight*4.5f),
                                             timeInSeconds);
+                break;
+            }
+            case 4 : {
+                buffer[left] = oscNoise();
+                buffer[right] = oscNoise();
                 break;
             }
 
@@ -399,10 +424,6 @@ Application::Application (size_t width, size_t height, const string& midiPort)
     SDL_AudioSpec want;
     SDL_AudioSpec have;
 
-    _synthData.filter = std::make_shared<Filter> (_cutOffFrequency,
-                                                  1.f/48000.f,
-                                                  IIR::ORDER::OD4);
-    _synthData.filter->dumpParams();
     _synthData.sampleRate = _sampleRate;
     _synthData.ticks = 0;
     _synthData.volume = .1f;
@@ -444,11 +465,15 @@ Application::Application (size_t width, size_t height, const string& midiPort)
     }
 
     _gl.reset(new OpenGL(width, height));
-    _gl->init(_sampleBufferSize);
+    _gl->init(_sampleBufferSize*_channels);
 }
 
 Application::~Application ()
 {
+    for (unsigned char pad = 0; pad < 16; ++pad) {
+        _midi.setPadColor (pad, PadColor::Black);
+    }
+
     SDL_GL_DeleteContext (_context);
     SDL_CloseAudioDevice (_audioDevice);
     SDL_DestroyWindow (_window);
@@ -528,7 +553,8 @@ void Application::handle_events ()
                 case SDLK_F2: instrument = 1; break;
                 case SDLK_F3: instrument = 2; break;
                 case SDLK_F4: instrument = 3; break;
-                case SDLK_F5: makeDirty = !makeDirty; break;
+                case SDLK_F5: instrument = 4; break;
+                case SDLK_F6: makeDirty = !makeDirty; break;
                 case SDLK_PLUS : if (_synthData.volume <= .95f) {
                                      _synthData.volume += .05f;
                                      cout << "volume " << _synthData.volume << '\n';
@@ -544,16 +570,6 @@ void Application::handle_events ()
                     SDL_PauseAudioDevice (_audioDevice, _mute);
                     break;
                 }
-                case SDLK_F6:
-                    _cutOffFrequency += 100.f;
-                    _synthData.filter->setCutoffFreqHZ(_cutOffFrequency);
-                    _synthData.filter->dumpParams();
-                break;
-                case SDLK_F7:
-                    _cutOffFrequency -= 100.f;
-                    _synthData.filter->setCutoffFreqHZ(_cutOffFrequency);
-                    _synthData.filter->dumpParams();
-                break;
 
                 // case SDLK_y: _synth.addNote (NOTE_C); _pressedKeys[SDLK_y] = true; break;
                 case SDLK_y: addNote (SDLK_y, NOTE_C); break;
@@ -623,14 +639,21 @@ void Synth::addNote (NoteId noteId)
                                    return note.noteId == noteId;
                                });
         if (result != _notes->end()) {
-            if ((*result).envelope.noteReleased) {
-                (*result).envelope.noteOn (elapsedSeconds());
-                (*result).envelope.noteOff (.0f);
+            if ((*result).amplitudeADSR.noteReleased) {
+                (*result).amplitudeADSR.noteOn (elapsedSeconds());
+                (*result).amplitudeADSR.noteOff (.0f);
+                (*result).filterADSR.noteOn (elapsedSeconds());
+                (*result).filterADSR.noteOff (.0f);
             }
         } else {
             Note note;
             note.noteId = noteId;
-            note.envelope.noteOn (elapsedSeconds());
+            note.amplitudeADSR.noteOn (elapsedSeconds());
+            note.filterADSR.noteOn (elapsedSeconds());
+            note.filterADSR.attackTime = .5f;
+            note.filterADSR.decayTime = .1f;
+            note.filterADSR.sustainLevel = .7f;
+            note.filterADSR.releaseTime = 1.f;
             note.voice = allocVoice();
             _notes->emplace_back (note);
         }
@@ -646,7 +669,8 @@ void Synth::removeNote (NoteId noteId)
                            });
 
     if (result != _notes->end()) {
-        (*result).envelope.noteOff (elapsedSeconds());
+        (*result).amplitudeADSR.noteOff (elapsedSeconds());
+        (*result).filterADSR.noteOff (elapsedSeconds());
     }
 }
 
@@ -659,15 +683,22 @@ void Synth::addNoteMidi(NoteId noteId, float velocity, float timeStamp)
                                    return note.noteId == noteId;
                                });
         if (result != _notes->end()) {
-            if ((*result).envelope.noteReleased) {
-                (*result).envelope.noteOn (timeStamp);
+            if ((*result).amplitudeADSR.noteReleased) {
+                (*result).amplitudeADSR.noteOn (timeStamp);
+                (*result).filterADSR.noteOn (timeStamp);
                 (*result).velocity = velocity;
-                (*result).envelope.noteOff (.0f);
+                (*result).amplitudeADSR.noteOff (.0f);
+                (*result).filterADSR.noteOff (.0f);
             }
         } else {
             Note note;
             note.noteId = noteId;
-            note.envelope.noteOn (timeStamp);
+            note.amplitudeADSR.noteOn (timeStamp);
+            note.filterADSR.noteOn (timeStamp);
+            note.filterADSR.attackTime = .5f;
+            note.filterADSR.decayTime = .1f;
+            note.filterADSR.sustainLevel = .7f;
+            note.filterADSR.releaseTime = 1.f;
             note.velocity = velocity;
             note.voice = allocVoice();
             _notes->emplace_back (note);
@@ -684,7 +715,8 @@ void Synth::removeNoteMidi(NoteId noteId, float velocity, float timeStamp)
                            });
 
     if (result != _notes->end()) {
-        (*result).envelope.noteOff (timeStamp);
+        (*result).amplitudeADSR.noteOff (timeStamp);
+        (*result).filterADSR.noteOff (timeStamp);
     }
 }
 
@@ -692,7 +724,7 @@ void Synth::clearNotes ()
 {
     std::lock_guard<std::mutex> guard(synthDataMutex);
     _notes->remove_if([this](Note& note){
-        bool flag = note.envelope.level(elapsedSeconds()) < .0001f;
+        bool flag = note.amplitudeADSR.level(elapsedSeconds()) < .0001f;
         if (flag) {
             freeVoice(note.voice);
         }

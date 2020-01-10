@@ -92,7 +92,8 @@ struct Note
 {
     NoteId noteId;
     int voice;
-    Envelope envelope;
+    Envelope amplitudeADSR;
+    Envelope filterADSR;
     float velocity = 1.f;
 };
 
@@ -127,7 +128,6 @@ struct SynthData
     float volume;
     shared_ptr<Notes> notes;
     float* sampleBufferForDrawing;
-    shared_ptr<Filter> filter;
     shared_ptr<vector<vector<float>>> voiceBuffers;
 };
 
@@ -155,6 +155,7 @@ class Application
         void handle_events ();
         static void readMidiKeys (const Midi& midi,
                                   queue<MessageData>& queue);
+        static void disco (const Midi& midi);
 
     private:
         bool _initialized = false;
@@ -165,9 +166,8 @@ class Application
         bool _mute = false;
         int _sampleRate = 48000;
         int _channels = 2;
-        int _sampleBufferSize = 512;
+        int _sampleBufferSize = 1024;
         unsigned int _maxVoices = 16;
-        float _cutOffFrequency = 22000.f;
         Synth _synth;
         shared_ptr<Notes> _notes;
         SynthData _synthData;
