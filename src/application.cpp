@@ -324,12 +324,10 @@ void computeFastFourierTransform (float* sampleBufferForDrawing,
                                   size_t channels)
 {
     size_t sampleBufferSize = samples*channels;
-    size_t fftBufferSize = frequencyBins*channels;
     float reciprocal = 1.f/static_cast<float> (samples);
     float fFrequencyBins = static_cast<float> (frequencyBins);
     float binWidth = floorf ((toFrequency - fromFrequency)/fFrequencyBins);
     float sampleTime = 1.f/static_cast<float> (sampleRate);
-    std::ignore = fftBufferSize;
     for (size_t bin = 0; bin < frequencyBins; ++bin) {
         float frequency = fromFrequency + bin*binWidth;
         std::complex<float> leftChannelSum (.0f, .0f);
