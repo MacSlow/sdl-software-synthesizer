@@ -124,10 +124,15 @@ class Synth
 struct SynthData
 {
     float sampleRate;
+    size_t channels;
+    size_t samples;
+    size_t frequencyBins;
+    bool doFFT;
     int ticks;
     float volume;
     shared_ptr<Notes> notes;
     float* sampleBufferForDrawing;
+    float* fftBufferForDrawing;
     shared_ptr<vector<vector<float>>> voiceBuffers;
 };
 
@@ -167,12 +172,14 @@ class Application
         int _sampleRate = 48000;
         int _channels = 2;
         int _sampleBufferSize = 1024;
+        int _frequencyBins = 1024;
         unsigned int _maxVoices = 16;
         Synth _synth;
         shared_ptr<Notes> _notes;
         SynthData _synthData;
         map<SDL_Keycode, bool> _pressedKeys;
         vector<float> _sampleBufferForDrawing;
+        vector<float> _fftBufferForDrawing;
         shared_ptr<OpenGL> _gl;
         Midi _midi;
         queue<MessageData> _midiMessageQueue;

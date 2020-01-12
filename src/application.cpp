@@ -62,7 +62,7 @@ void Application::initialize ()
         return;
     }
 
-    _sampleBufferForDrawing.reserve(_sampleBufferSize*2);
+    _sampleBufferForDrawing.reserve (_sampleBufferSize*_channels);
 
     std::fill(_sampleBufferForDrawing.begin(),
               _sampleBufferForDrawing.end(),
@@ -314,6 +314,52 @@ static bool makeDirty = false;
 static short instrument = 0;
 static short numBuffersPerSecond = 0;
 
+void computeFastFourierTransform (float* sampleBufferForDrawing,
+                                  float* fftBufferForDrawing,
+                                  float fromFrequency,
+                                  float toFrequency,
+                                  size_t frequencyBins,
+                                  size_t samples,
+                                  size_t sampleRate,
+                                  size_t channels)
+{
+    size_t sampleBufferSize = samples*channels;
+    size_t fftBufferSize = frequencyBins*channels;
+    // float reciprocal = 1.f/static_cast<float> (samples);
+    float fFrequencyBins = static_cast<float> (frequencyBins);
+    float binWidth = floorf ((toFrequency - fromFrequency)/fFrequencyBins);
+    float sampleTime = 1.f/static_cast<float> (sampleRate);
+    // std::ignore = binWidth;
+    //std::ignore = sampleBufferSize;
+    std::ignore = fftBufferSize;
+    // std::cout << "bin-width: " << binWidth << '\n';
+    // std::cout << "sample-buffer-size: " << sampleBufferSize << '\n';
+    // std::cout << "fft-buffer-size: " << fftBufferSize << '\n';
+    for (size_t bin = 0; bin < frequencyBins; ++bin) {
+        float frequency = fromFrequency + bin*binWidth;
+        float leftChannelSum = .0f;
+        // float rightChannelSum = .0f;
+        for (size_t sample = 0; sample < sampleBufferSize; sample += 2) {
+            size_t left = sample;
+            // size_t right = sample + 1;
+            float t = sampleTime*static_cast<float> (sample/2);
+            float leftSample = sampleBufferForDrawing[left];
+            // float rightSample = sampleBufferForDrawing[right];
+            float power = -2.f*M_PI*frequency*t;
+            std::complex<float> value(.0f, power);
+            auto e = exp (value);
+            auto l = leftSample*e;
+            //auto r = rightSample*e;
+            leftChannelSum += .01f*l.real();
+            //rightChannelSum += r.imag();
+        }
+        size_t left = 2*bin;
+        //size_t right = 2*bin + 1;
+        fftBufferForDrawing[left] = abs(leftChannelSum);//*reciprocal;
+        //fftBufferForDrawing[right] = rightChannelSum*reciprocal;
+    }
+}
+
 void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
 {
     std::lock_guard<std::mutex> guard(synthDataMutex);
@@ -365,6 +411,19 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         synthData->sampleBufferForDrawing[right] = sampleBuffer[right];
     }
 
+    float fromFrequency = .1f;
+    float toFrequency = 11'250.f;
+    if (synthData->doFFT) {
+        computeFastFourierTransform (synthData->sampleBufferForDrawing,
+                                     synthData->fftBufferForDrawing,
+                                     fromFrequency,
+                                     toFrequency,
+                                     synthData->frequencyBins,
+                                     synthData->samples,
+                                     synthData->sampleRate,
+                                     synthData->channels);
+    }
+
     synthData->ticks += ((lengthInBytes/sizePerSample - 1) / 2) + 1;
     ++numBuffersPerSecond;
 
@@ -378,8 +437,9 @@ Application::Application (size_t width, size_t height, const string& midiPort)
     , _window {nullptr}
     , _running {false}
     , _synth {Synth(_maxVoices)}
-    , _sampleBufferForDrawing(_sampleBufferSize*2)
-	, _midi{midiPort}
+    , _sampleBufferForDrawing (_sampleBufferSize*_channels)
+    , _fftBufferForDrawing (_frequencyBins*_channels)
+	, _midi {midiPort}
 {
     initialize ();
 
@@ -425,10 +485,15 @@ Application::Application (size_t width, size_t height, const string& midiPort)
     SDL_AudioSpec have;
 
     _synthData.sampleRate = _sampleRate;
+    _synthData.channels = _channels;
+    _synthData.samples = _sampleBufferSize;
+    _synthData.frequencyBins = _frequencyBins;
+    _synthData.doFFT = false;
     _synthData.ticks = 0;
     _synthData.volume = .1f;
     _synthData.notes = _synth.notes();
     _synthData.sampleBufferForDrawing = _sampleBufferForDrawing.data();
+    _synthData.fftBufferForDrawing = _fftBufferForDrawing.data();
     _synthData.voiceBuffers = make_shared<vector<vector<float>>>(_voiceBuffers);
 
     SDL_zero (want);
@@ -465,7 +530,7 @@ Application::Application (size_t width, size_t height, const string& midiPort)
     }
 
     _gl.reset(new OpenGL(width, height));
-    _gl->init(_sampleBufferSize*_channels);
+    _gl->init(_sampleBufferSize*_channels, _frequencyBins*_channels);
 }
 
 Application::~Application ()
@@ -555,6 +620,7 @@ void Application::handle_events ()
                 case SDLK_F4: instrument = 3; break;
                 case SDLK_F5: instrument = 4; break;
                 case SDLK_F6: makeDirty = !makeDirty; break;
+                case SDLK_F7: _synthData.doFFT = !_synthData.doFFT; break;
                 case SDLK_PLUS : if (_synthData.volume <= .95f) {
                                      _synthData.volume += .05f;
                                      cout << "volume " << _synthData.volume << '\n';
@@ -617,7 +683,7 @@ void Application::update ()
     if (!_initialized)
         return;
 
-    _gl->draw (_sampleBufferForDrawing);
+    _gl->draw (_sampleBufferForDrawing, _fftBufferForDrawing, _synthData.doFFT);
     SDL_GL_SwapWindow(_window);
 }
 

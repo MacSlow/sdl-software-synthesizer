@@ -30,7 +30,7 @@ OpenGL::~OpenGL ()
 {
 }
  
-bool OpenGL::init (size_t audioBufferSize)
+bool OpenGL::init (size_t audioBufferSize, size_t frequencyBins)
 {
     _audioBufferSize = audioBufferSize;
     std::cout << "buffer size: " << _audioBufferSize << '\n';
@@ -82,7 +82,9 @@ bool OpenGL::resize (unsigned int width, unsigned int height)
     return true;
 }
 
-bool OpenGL::draw (std::vector<float>& sampleBufferForDrawing)
+bool OpenGL::draw (std::vector<float>& sampleBufferForDrawing,
+                   std::vector<float>& fftBufferForDrawing,
+                   bool doFFT)
 {
     glClear (GL_COLOR_BUFFER_BIT);
 
@@ -94,6 +96,9 @@ bool OpenGL::draw (std::vector<float>& sampleBufferForDrawing)
     for (int i = 0; i < quad.size(); i += 2) {
         float x = static_cast<float>(i);
         float y = sampleBufferForDrawing[i];
+        if (doFFT) {
+            y = fftBufferForDrawing[i];
+        }
         quad[i] = (x/_audioBufferSize)*(_width/_height) - 1.f;
         quad[i+1] = y;
     }

@@ -10,9 +10,11 @@ class OpenGL
                 unsigned int height);
         ~OpenGL ();
  
-        bool init (size_t audioBufferSize);
+        bool init (size_t audioBufferSize, size_t frequencyBins);
         bool resize (unsigned int width, unsigned int height);
-        bool draw (std::vector<float>& sampleBufferForDrawing);
+        bool draw (std::vector<float>& sampleBufferForDrawing,
+                   std::vector<float>& fftBufferForDrawing,
+                   bool doFFT);
 
     private:
         GLuint loadShader (const char *src, GLenum type);
