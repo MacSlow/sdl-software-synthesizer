@@ -325,20 +325,15 @@ void computeFastFourierTransform (float* sampleBufferForDrawing,
 {
     size_t sampleBufferSize = samples*channels;
     size_t fftBufferSize = frequencyBins*channels;
-    // float reciprocal = 1.f/static_cast<float> (samples);
+    float reciprocal = 1.f/static_cast<float> (samples);
     float fFrequencyBins = static_cast<float> (frequencyBins);
     float binWidth = floorf ((toFrequency - fromFrequency)/fFrequencyBins);
     float sampleTime = 1.f/static_cast<float> (sampleRate);
-    // std::ignore = binWidth;
-    //std::ignore = sampleBufferSize;
     std::ignore = fftBufferSize;
-    // std::cout << "bin-width: " << binWidth << '\n';
-    // std::cout << "sample-buffer-size: " << sampleBufferSize << '\n';
-    // std::cout << "fft-buffer-size: " << fftBufferSize << '\n';
     for (size_t bin = 0; bin < frequencyBins; ++bin) {
         float frequency = fromFrequency + bin*binWidth;
-        float leftChannelSum = .0f;
-        // float rightChannelSum = .0f;
+        std::complex<float> leftChannelSum (.0f, .0f);
+        // std::complex<float> rightChannelSum (.0f, .0f);
         for (size_t sample = 0; sample < sampleBufferSize; sample += 2) {
             size_t left = sample;
             // size_t right = sample + 1;
@@ -346,17 +341,20 @@ void computeFastFourierTransform (float* sampleBufferForDrawing,
             float leftSample = sampleBufferForDrawing[left];
             // float rightSample = sampleBufferForDrawing[right];
             float power = -2.f*M_PI*frequency*t;
-            std::complex<float> value(.0f, power);
-            auto e = exp (value);
-            auto l = leftSample*e;
-            //auto r = rightSample*e;
-            leftChannelSum += .01f*l.real();
-            //rightChannelSum += r.imag();
+            std::complex<float> value(1.f, power);
+            leftChannelSum += leftSample*exp (value);
+            // rightChannelSum += rightSample*exp (value);
         }
         size_t left = 2*bin;
-        //size_t right = 2*bin + 1;
-        fftBufferForDrawing[left] = abs(leftChannelSum);//*reciprocal;
-        //fftBufferForDrawing[right] = rightChannelSum*reciprocal;
+        // size_t right = 2*bin + 1;
+        fftBufferForDrawing[left] = reciprocal*sqrt (leftChannelSum.real() *
+                                                     leftChannelSum.real() +
+                                                     leftChannelSum.imag() *
+                                                     leftChannelSum.imag());
+        // fftBufferForDrawing[right] = reciprocal*sqrt (rightChannelSum.real() *
+        //                                               rightChannelSum.real() +
+        //                                               rightChannelSum.imag() *
+        //                                               rightChannelSum.imag());
     }
 }
 

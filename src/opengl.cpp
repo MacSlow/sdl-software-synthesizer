@@ -97,7 +97,7 @@ bool OpenGL::draw (std::vector<float>& sampleBufferForDrawing,
         float x = static_cast<float>(i);
         float y = sampleBufferForDrawing[i];
         if (doFFT) {
-            y = fftBufferForDrawing[i];
+            y = fftBufferForDrawing[i] - .75f;
         }
         quad[i] = (x/_audioBufferSize)*(_width/_height) - 1.f;
         quad[i+1] = y;
