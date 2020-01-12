@@ -409,8 +409,8 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         synthData->sampleBufferForDrawing[right] = sampleBuffer[right];
     }
 
-    float fromFrequency = .1f;
-    float toFrequency = 11'250.f;
+    float fromFrequency = 20.f;
+    float toFrequency = 22'500.f;
     if (synthData->doFFT) {
         computeFastFourierTransform (synthData->sampleBufferForDrawing,
                                      synthData->fftBufferForDrawing,
