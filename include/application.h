@@ -131,8 +131,8 @@ struct SynthData
     int ticks;
     float volume;
     shared_ptr<Notes> notes;
-    float* sampleBufferForDrawing;
-    float* fftBufferForDrawing;
+    shared_ptr<vector<float>> sampleBufferForDrawing;
+    shared_ptr<vector<float>> fftBufferForDrawing;
     shared_ptr<vector<vector<float>>> voiceBuffers;
 };
 
@@ -183,7 +183,6 @@ class Application
         shared_ptr<OpenGL> _gl;
         Midi _midi;
         queue<MessageData> _midiMessageQueue;
-        vector<thread> _voiceThreads;
         vector<vector<float>> _voiceBuffers;
 };
 
