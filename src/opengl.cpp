@@ -62,7 +62,7 @@ bool OpenGL::init (size_t audioBufferSize, size_t frequencyBins)
                            2,
                            GL_FLOAT,
                            GL_FALSE,
-                           4 * sizeof (GLfloat),
+                           0,
                            offset);
     glEnableVertexAttribArray (PositionAttr);
 
@@ -98,14 +98,21 @@ bool OpenGL::draw (std::vector<float>& sampleBufferForDrawing,
         float y = sampleBufferForDrawing[i];
         if (doFFT) {
             y = fftBufferForDrawing[i] - .75f;
+            quad[i] = (x/fftBufferForDrawing.size())*(_width/_height) - 1.f;
+        } else {
+            quad[i] = (x/sampleBufferForDrawing.size())*(_width/_height) - 1.f;
         }
-        quad[i] = (x/_audioBufferSize)*(_width/_height) - 1.f;
         quad[i+1] = y;
     }
 
     glNamedBufferSubData(_vbo, 0, quad.size() * sizeof (GLfloat), quad.data());
 
-    std::vector<unsigned short> indices(_audioBufferSize/4);
+    if (doFFT) {
+        size = fftBufferForDrawing.size()/2;
+    } else {
+        size = sampleBufferForDrawing.size()/2;
+    }
+    std::vector<unsigned short> indices (size);
     int index = 0;
     std::generate(indices.begin(), indices.end(), [&](){
         return index++;

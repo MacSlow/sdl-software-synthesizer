@@ -78,8 +78,7 @@ void Application::initialize ()
 	}
 
     if (_midi.initialized()) {
-        std::thread midiDiscoThread (disco,
-                                          std::ref (_midi));
+        std::thread midiDiscoThread (disco, std::ref (_midi));
         midiDiscoThread.detach();
     }
 }
@@ -314,6 +313,37 @@ static bool makeDirty = false;
 static short instrument = 0;
 static short numBuffersPerSecond = 0;
 
+// assumes power-of-two number of samples, no zero-padding, no checks
+void computeFFT (vector<complex<float>>::iterator begin,
+                 vector<complex<float>>::iterator end)
+{
+    auto numSamples = distance (begin, end);
+
+    if (numSamples < 2) {
+        return;
+    } else {
+        // 'sort' even-indexed samples into the front half and odd ones in the
+        // back half
+        stable_partition (begin, end, [&begin] (auto& a) {
+            return distance (&*begin, &a) % 2 == 0;
+        });
+
+        // recursion step
+        computeFFT (begin, begin + numSamples/2); // even
+        computeFFT (begin + numSamples/2, end); // odd
+
+        // do the actual computation time->frequency domain
+        for (decltype (numSamples) k = 0; k < numSamples/2; ++k) {
+            auto even = *(begin + k);
+            auto odd  = *(begin + k + numSamples/2);
+            auto w = exp (complex<float>(.0f, -2.f*M_PI*k/numSamples))*odd;
+
+            *(begin + k) = even + w;
+            *(begin + k + numSamples/2) = even - w;
+        }
+    }
+}
+
 void computeFastFourierTransform (vector<float>& sampleBufferForDrawing,
                                   vector<float>& fftBufferForDrawing,
                                   float fromFrequency,
@@ -324,35 +354,21 @@ void computeFastFourierTransform (vector<float>& sampleBufferForDrawing,
                                   size_t channels)
 {
     size_t sampleBufferSize = sampleBufferForDrawing.size();
-    float reciprocal = 1.f/static_cast<float> (samples);
-    float fFrequencyBins = static_cast<float> (frequencyBins);
-    float binWidth = floorf ((toFrequency - fromFrequency)/fFrequencyBins);
-    float sampleTime = 1.f/static_cast<float> (sampleRate);
+    float reciprocal = 5.f/static_cast<float> (samples);
+
+    vector<complex<float>> leftChannel (sampleBufferSize/2, .0f);
+    for (size_t i = 0; i < sampleBufferSize; i += 2) {
+        leftChannel[i/2] = sampleBufferForDrawing[i];
+    }
+
+    computeFFT (leftChannel.begin(), leftChannel.end());
+
     for (size_t bin = 0; bin < frequencyBins; ++bin) {
-        float frequency = fromFrequency + bin*binWidth;
-        float omega = -2.f*M_PI*frequency;
-        std::complex<float> leftChannelSum (.0f, .0f);
-        // std::complex<float> rightChannelSum (.0f, .0f);
-        for (size_t sample = 0; sample < sampleBufferSize; sample += 2) {
-            size_t left = sample;
-            // size_t right = sample + 1;
-            float t = sampleTime*static_cast<float> (sample/2);
-            float leftSample = sampleBufferForDrawing[left];
-            // float rightSample = sampleBufferForDrawing[right];
-            std::complex<float> value(.0f, omega*t);
-            leftChannelSum += leftSample*exp (value);
-            // rightChannelSum += rightSample*exp (value);
-        }
         size_t left = 2*bin;
-        // size_t right = 2*bin + 1;
-        fftBufferForDrawing[left] = reciprocal*sqrt (leftChannelSum.real() *
-                                                     leftChannelSum.real() +
-                                                     leftChannelSum.imag() *
-                                                     leftChannelSum.imag());
-        // fftBufferForDrawing[right] = reciprocal*sqrt (rightChannelSum.real() *
-        //                                               rightChannelSum.real() +
-        //                                               rightChannelSum.imag() *
-        //                                               rightChannelSum.imag());
+        fftBufferForDrawing[left] = reciprocal*sqrt (leftChannel[bin].real() *
+                                                     leftChannel[bin].real() +
+                                                     leftChannel[bin].imag() *
+                                                     leftChannel[bin].imag());
     }
 }
 
@@ -409,7 +425,7 @@ void fillSampleBuffer (void* userdata, Uint8* stream, int lengthInBytes)
         (*sampleBufferForDrawing)[right] = sampleBuffer[right];
     }
 
-    float fromFrequency = 20.f;
+    float fromFrequency = .0f;
     float toFrequency = 22'500.f;
     if (synthData->doFFT) {
         computeFastFourierTransform ((*sampleBufferForDrawing),

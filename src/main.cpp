@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "application.h"
 
 #define WIDTH 1024*1.5

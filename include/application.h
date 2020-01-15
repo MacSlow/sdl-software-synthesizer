@@ -172,7 +172,7 @@ class Application
         int _sampleRate = 48000;
         int _channels = 2;
         int _sampleBufferSize = 1024;
-        int _frequencyBins = 1024;
+        int _frequencyBins = 512;
         unsigned int _maxVoices = 16;
         Synth _synth;
         shared_ptr<Notes> _notes;
