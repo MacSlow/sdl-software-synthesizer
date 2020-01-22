@@ -548,9 +548,11 @@ Application::Application (size_t width, size_t height, const string& midiPort)
 
 Application::~Application ()
 {
-    for (unsigned char pad = 0; pad < 16; ++pad) {
-        _midi.setPadColor (pad, PadColor::Black);
-    }
+	if (_midi.initialized()) {
+		for (unsigned char pad = 0; pad < 16; ++pad) {
+			_midi.setPadColor (pad, PadColor::Black);
+		}
+	}
 
     SDL_GL_DeleteContext (_context);
     SDL_CloseAudioDevice (_audioDevice);
