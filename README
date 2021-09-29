@@ -32,6 +32,13 @@ mapped differently, if you use other keyboard-mappings. This is meant to be
 used with a proper velocity-sensitive MIDI-keyboard. The keyboard is just a
 debugging feature for me. You can at least play chords that way too :)
 
+BTW, if you happen to have an Arturia MiniLab MkII MIDI-keyboard, it will
+show a small "disco"-like color-cycling effect on the drum-pads. That is
+a side-effect of learning about MIDI-standard/SysEx-commands.
+
+Bugs... yes there are some... most I am aware of. This is a playground project,
+not something meant for hassle-free general consumption.
+
 The build-dependencies are modest:
 
  * cmake 2.8.12
