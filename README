@@ -3,12 +3,41 @@ This is a SDL2-based implementation of a audio synthesizer.
 Available interaction control-keys:
 
  * <ESC> - quits program
+ * <F1> - use plain sine-wave osc
+ * <F2> - use square-wave osc
+ * <F3> - use sawtooth-wave osc
+ * <F4> - use some combo-wave osc
+ * <F5> - use noise osc
+ * <F7> - toggle time-/frequency-domain display
 
-The dependencies are modest:
+How to use an attached MIDI-keyboard:
+
+ * use alsa-command amidi to determine MIDI-device
+ * amidi -l (e.g. reports hw:2,0,0)
+ * cd build
+ * ./software-synthesizer hw:2,0,0
+
+If you do not have a MIDI-keyboard, you can use the regular keyboard-keys
+of you computer. I roughly replicated the layout of a single octave on a
+piano-keyboard like so:
+
+    s d   g h j 
+   y x c v b n m ,
+
+   C# D#   F# G# A#
+  C  D  E F  G  A  B C
+
+This is for a regular German qwertz-layout keyboard. The y and , are probably
+mapped differently, if you use other keyboard-mappings. This is meant to be
+used with a proper velocity-sensitive MIDI-keyboard. The keyboard is just a
+debugging feature for me. You can at least play chords that way too :)
+
+The build-dependencies are modest:
 
  * cmake 2.8.12
  * C++-14 compiler (e.g. g++, clang++)
  * SDL 2.0.5
+ * OpenGL 3.x
 
 It compiles and runs under recent Linux-distributions (e.g. Ubuntu 16.04). It
 should run with little or no changes under MacOS X and Windows 7 (or more 
