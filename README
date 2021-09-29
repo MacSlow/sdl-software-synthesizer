@@ -9,6 +9,7 @@ Available interaction control-keys:
  * <F4> - use some combo-wave osc
  * <F5> - use noise osc
  * <F7> - toggle time-/frequency-domain display
+ * +/- - change volume in rough chunks
 
 What does it sound/look like:
 
