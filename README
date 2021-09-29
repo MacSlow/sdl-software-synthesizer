@@ -21,6 +21,12 @@ How to use an attached MIDI-keyboard:
  * cd build
  * ./software-synthesizer hw:2,0,0
 
+I tried it successfully with these MIDI-keyboards:
+
+ * Arturia MiniLab MkII
+ * Roland RD-88 (actually a full-blown e-piano)
+ * StudioLogic SL88 Studio
+
 If you do not have a MIDI-keyboard, you can use the regular keyboard-keys
 of you computer. I roughly replicated the layout of a single octave on a
 piano-keyboard like so:
