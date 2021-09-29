@@ -10,6 +10,10 @@ Available interaction control-keys:
  * <F5> - use noise osc
  * <F7> - toggle time-/frequency-domain display
 
+What does it sound/look like:
+
+ * https://www.youtube.com/watch?v=ae0erYfJn_k
+
 How to use an attached MIDI-keyboard:
 
  * use alsa-command amidi to determine MIDI-device
